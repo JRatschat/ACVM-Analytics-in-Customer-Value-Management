@@ -1,0 +1,171 @@
+---
+title: "Case 1 Pilgrim Bank"
+author: "Jonathan Ratschat, Franziska Bülck"
+date: "20.10.2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+# Preparation of dataset
+
+## Importing dataset and formating variables
+
+```{r}
+library(readxl)
+
+#read xls file
+Data <- read_xls("Data_Pilgrim_Case-Part-A.xls")
+
+#change colnames
+colnames(Data)[2:7] <-c("Profit","Online","Age","Inc","Tenure","District")
+
+#change data types
+Data$ID <- as.factor(Data$ID)
+Data$Online <- as.factor(Data$Online)
+Data$Age <- as.factor(Data$Age)
+Data$Inc <- as.factor(Data$Inc)
+Data$District <- as.factor(Data$District)
+```
+
+## Exploring Data
+
+```{r}
+str(Data)
+summary(Data)
+```
+
+Findings:
+
+- 31,628 customers
+
+- Profits ranging between -221.0 and 2071.0
+
+- Median 9.0 and Mean 111.5 (right-skewed distribution)
+
+- Data set contains only 12.18% online banking users
+
+- Missing data (8,289 customers do not contain a factor for age and 8,261 customers do not contain a factor for Inc).
+
+# Analysis
+
+## Backward stepwise regression using Data
+
+```{r}
+library(MASS)
+
+full.model <- lm(Profit ~ Online + Age + Inc + Tenure + District, data = Data, na.action = na.omit)
+step.model <- stepAIC(full.model, direction = "both", trace = FALSE)
+summary(step.model)
+```
+
+Data$Online1 is significant and increases profit by ~17 when all other independent variables do not change.
+
+Data$Age is significant. We see that higher age has a positive effect on profitability.
+
+Data$Inc is significant from Inc6 to Inc9 ($50,000 to $125,000 and more). We see that higher income has a positive effect on profitability.
+
+Not best solution to delete 8822 observations.
+
+## Backward stepwise regression using imputed dataset (random forest imputation)
+
+```{r}
+library(missForest)
+
+dummy <- as.data.frame(Data)
+
+Data.imp <- missForest(dummy[,-1], verbose = TRUE)
+
+Data.imp$OOBerror
+```
+
+PFC (proportion of falsely classified) is relatively high.
+
+```{r}
+full.model2 <- lm(Profit ~ Online + Age + Inc + Tenure + District, data = Data.imp$ximp)
+step.model2 <- stepAIC(full.model2, direction = "both", trace = FALSE)
+summary(step.model2)
+```
+
+Data$Online1 is significant and increases profit by ~14 when all other independent variables do not change.
+
+Data$Age is significant. We see that higher age has a positive effect on profitability.
+
+Data$Inc is significant from Inc6 to Inc9 ($50,000 to $125,000 and more). We see that higher income has a positive effect on profitability. Inc2 is now significant as well having a negative impact on profitability.
+
+## Regression (interaction effects) using imputed dataset (rendom forest imputation)
+
+```{r}
+interaction.model <- lm(Profit ~ Online*Age + Inc + Tenure + District,data = Data.imp$ximp)
+summary(interaction.model)
+```
+
+Here we see that the interaction effect between Online1 and Age5 (middle-aged) is significant. Lower significance level are present for younger customers while there is no significance level for older customers.
+
+# Analysis using only top ten percent of most profitable customers
+
+## Reasoning for looking at top ten percent of most profitable customers
+
+10% of the customers generated 70% of the profits. Therefore, these customers deserve special attention since a decision in the strategy has the highest impact on the overall profitability.
+
+
+```{r}
+#Subset data into 10% most profitable and 90% least profitable customers
+
+DataProfit <- Data.imp$ximp[order(Data.imp$ximp$Profit),] 
+0.1*31634
+31634-3163
+VectorProfit <- c(28471:31634)
+DataProfit <- DataProfit[VectorProfit, ]
+```
+
+## Exploring Data
+
+```{r}
+str(DataProfit)
+summary(DataProfit)
+```
+
+Findings:
+
+- 3,164 customers
+
+- Profits ranging from 424.0 to 2071.0
+
+- Median 658.0 and Mean 771.2 (still right-skewed distribution, but not as severe as in Data)
+
+- Share of online users is 13.5%
+
+## Regression model
+
+```{r}
+full.model3 <- lm(Profit ~ Online + Age + Inc + Tenure + District, data = DataProfit)
+summary(full.model3)
+```
+
+The dependent variable DataProfit$Online1 is not significant. Null-Hypothesis can not be rejected. Therefore, our analysis concerning the top 10% brings no further insights.
+
+# Overall conclusion
+
+From our analyses we can derive that it is beneficial for Pilgrim Bank to promote online banking younger and most importantly to middle aged customers. The older aged customers may not buy online products with high margins.
+
+
+# Brief describtion of the shortcomings of our analyses
+
+- Data is not actual (from end of 1999 - one year old). Dataset was constructed under customer self-selection since customers could decide on their own if they want to use online banking or not.
+- Data size is small (31,634 out of 5,000,000 obervations).
+- Data set contains only 12% online banking users
+- Missing data (8,289 customers do not contain a factor for age and 8,261 customers do not contain a factor for Inc). Our missingForest model seems to have a relatively high PFC (proportion of falsely classified).
+- Data consists of only a few independent variables. More variables could be of help.
+- Complications because column "Online" does not describe how the new channel is actively used. Customers being registered as online banking users can still go most of the times to a branch instead of using the online service.
+
+
+
+
+
+
+
+
+
