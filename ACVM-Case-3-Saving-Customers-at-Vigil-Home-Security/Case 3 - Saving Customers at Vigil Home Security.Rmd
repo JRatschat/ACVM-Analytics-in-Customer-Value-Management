@@ -1,0 +1,155 @@
+---
+title: "Case 3 - Saving Customers at Vigil Home Security"
+author: "Jonathan Ratschat / Franziska Bülck"
+date: "03.11.2019"
+output:
+  pdf_document: default
+  word_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+# Preparing dataset
+
+## Load dataset
+
+```{r}
+#install.packages("readxl")
+library(readxl)
+
+Data <- read_excel("SavingCustomers.xlsx")
+str(Data)
+summary(Data)
+```
+
+## Description of variables
+
+Save ID: An identifier running from 1 to 45,017.
+
+Offer: "A" through "O" for the 15 most-used offers.
+
+Save Month: The month the save was made. (1=December, 2=January,...6=May).
+
+Disco Month: The month the customer discontinued VHS service. This data field is blank if the customer did not discontinue service during the nine-month period after the safe.
+
+## Transformation of variables
+
+```{r}
+#Transform ID from integer to character
+Data$`Save ID` <- as.character(Data$`Save ID`)
+
+#Transform Offer from character to factor
+Data$Offer <- as.factor(Data$Offer)
+```
+
+## Creation and transformation of new variables for exploratory analysis and model
+
+```{r}
+#Create variable DurationSaved
+Data$DurationSaved <- Data$`Disco Month`- Data$`Save Month`
+
+#Create binary variable: Was contract cancellated during nine-month period?
+Data$Cancelled[is.na(Data$DurationSaved)] <- 0
+Data$Cancelled[is.na(Data$Cancelled)] <- 1
+
+#We do not know what happened to customers who did not cancel after the nine
+#months. Since we have created a variable that indicated right-censoring 
+#(Data$Cancelled), we transform NAs to the highest possible duration.
+Data$DurationSaved[is.na(Data$DurationSaved)] <- 9
+```
+
+# Exploratory analysis
+
+```{r}
+#install.packages("ggplot2")
+library(ggplot2)
+```
+
+```{r}
+ggplot(Data, aes(x=DurationSaved)) + 
+  geom_histogram(aes(y=..density..), 
+                 binwidth = 1, color="black", fill = "blue") +
+  facet_wrap(~Offer)+ theme_light(base_size=12) + 
+  ggtitle("Density of DurationSaved per Offer", 
+          subtitle = "There is a clear difference between the offers used") +
+  xlab("DurationSaved (count)") + 
+  theme(plot.title = element_text(color = "blue", face = "bold"))
+```
+
+```{r}
+ggplot(Data) + 
+  geom_jitter(aes(x=Offer,y=DurationSaved), 
+              shape = 1, width = 0.5, alpha = 0.5) + 
+  ggtitle("DurationSaved per Offer", 
+          subtitle = "E, F, K and O seem to have highest cancellation problem") +
+  xlab("Offer") + ylab("Number of Duration Saved") + 
+  theme(plot.title = element_text(color = "blue", face = "bold"))
+```
+
+# How do the offers affect the longevity of saved customers relationship?
+
+## Kaplan-Meier Method
+
+The Kaplan-Meier estimator is a non-parametric statistic that allows us to estimate the survival function (in this case cancellation).
+
+A non-parametric statistic is not based on the assumption of an underlying probability distribution, since survival data has a skewed distribution.
+
+This statistic gives the probability that an individual customer will not cancel past a particular time t.
+
+```{r}
+#install.packages("survival")
+#install.packages("survminer")
+#install.packages("dplyr")
+
+library(survival)
+library(survminer)
+library(dplyr)
+
+#Create a survival object (compiled version of DurationSaved and Survive)
+surv_object <- Surv(time=Data$DurationSaved, Data$Cancelled)
+
+#"+" behind survival times indicates censored data points
+head(surv_object, n=50)
+
+#Fit the Kaplan-Meier curves
+fit1 <- survfit(surv_object ~ Offer, data = Data)
+summary(fit1)
+
+ggsurvplot(fit1, data = Data, pval = TRUE)
+```
+
+We can use the log-rank test to compare survival curves of two groups. The log-rank test is a statistical hypothesis test that tests the null hypothesis that survival curves of two populations do not differ. The log-rank p-value of 0.0001 indicates a significant result, therefore, the survival curves differ.
+
+Offer A to D have the highest probabilities that an individual customer will not cancel past 9 months (>80%), while offers E, F and O have the lowest probabilities (<55%).
+
+
+## Cox Proportional Hazards Models
+
+It describes the probability of an event or its hazard (cancellation in this case) if the customer survived up to that particular time point t. It is a bit more difficult to illustrate than the Kaplan-Meier estimator because it measures the instantaneous risk of cancellation. Nevertheless, we need the hazard function to consider covariates when we compare survival of patient groups. Covariates, also called explanatory or independent variables in regression analysis, are variables that are possibly predictive of an outcome or that we might want to adjust for to account for interactions between variables.
+
+```{r}
+# Fit a Cox proportional hazards model
+fit.coxph <- coxph(surv_object ~ Offer, data = Data)
+ggforest(fit.coxph, data = Data)
+```
+
+Offer A was used as a reference to calculate the hazard ratio.
+
+An hazard ratio > 1 indicates an increased risk of cancellation if a specific offer is given to a customer. An hazard ratio < 1, on the other hand, indicates a decreased risk.
+
+Therefore, the Cox proporational hazard model indicates that offers E, F and O have a relatively high risk of cancellation. These results are significant.
+
+On the other hand, it indicates that offer D has a relatively low risk of cancellation. There are other offers with low hazard ratios (e.g. A and C), but these results are not significant.
+
+## Conclusion
+
+The offers affect the longevity of saved customers relationship as shown with the two models. We recommend using offer D since it performs well in both models. For further analysis, we would need to analyse if offer D also leads to the highest feasible profits. 
+
+
+
+
+
+

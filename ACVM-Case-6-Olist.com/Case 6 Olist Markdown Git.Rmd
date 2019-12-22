@@ -1,0 +1,308 @@
+---
+title: "Case 6 - Olist"
+author: "Jonathan Ratschat, Franziska Bülck"
+date: "06.12.2019"
+output:
+  word_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+# Event Log Definitions
+
+Event Log
+Process mining assumes the existence of an event log where each event refers to a case, an activity/event, and a point in time. An event log can be seen as a collection of cases and a case can be seen as a trace/sequence of events. 
+
+Case
+A case is a coherent process iteration.
+
+Trace
+A trace is a sequence of activity labels.
+
+
+# Preparation of dataset
+
+
+```{r}
+#install.packages("shiny")
+library(shiny)
+```
+
+## Importing dataset 
+
+```{r}
+#load event log data
+load("Olist_Event_Log_2019.RData")
+
+```
+
+#change data types
+
+```{r}
+event_log$voucher <- as.factor(event_log$voucher)
+event_log$customer_state <- as.factor(event_log$customer_state)
+```
+
+## Exploring Data
+
+```{r}
+str(event_log)
+summary(event_log)
+```
+
+Findings:
+
+- 144,986 orders
+
+- Missing data
+  -timestamp: 6
+  -max_width: 12
+  -max_weight: 12
+  -max_height: 12
+  -avg_ph_quality: 2164
+
+# Analysis
+
+## 1. Descriptive Analysis
+
+```{r}
+#install.packages("bupaR")
+library(bupaR)
+```
+
+### a. How many cases does the event log contain
+
+```{r}
+n_cases(event_log)
+```
+
+### b. How many events does the event log contain
+
+```{r}
+n_events(event_log)
+```
+
+### c. How many unique activities are executed throughout the process
+
+```{r}
+#install.packages("plyr")
+library(plyr)
+
+n_activities(event_log)
+
+activity_labels(event_log)
+```
+
+Six activities are executed throughout the process. The activities are purchase, approve, deliever_carrier, deliever_customer, sent out review survey to customer and customer provides review.        
+
+### d. Summary of the event log and visualization of interesting variables
+
+```{r}
+summary(event_log)
+```
+
+```{r}
+#install.packages("ggplot2")
+library(ggplot2)
+
+#install.packages("edeaR")
+library(edeaR)
+
+ActivityFrequency <- event_log %>% activity_frequency(level = "activity") 
+
+plot(ActivityFrequency)
+```
+
+```{r}
+#install.packages("processmonitR")
+library(processmonitR)
+
+activity_dashboard(event_log)
+```
+
+activity_dashboard(event_log)
+
+## 2. Control-Flow Perspective and Structure of the Process
+
+### a. How many different variants of the processs are in the event log
+
+```{r}
+n_traces(event_log)
+
+number_of_traces(event_log)
+
+trace_list(event_log)
+```
+
+### b. What is the most frequent  variant of the process
+
+```{r}
+#Visual solution with a process map showing the process variants with 90% or more presence (thus the most frequent)
+event_log %>%
+ filter_trace_frequency(perc = 0.9) %>%
+ process_map()
+
+#Alternative solution
+TraceVariantFreq <- count(traces(event_log))
+
+which.max(TraceVariantFreq$absolute_frequency)
+
+TraceVariantFreq$trace [3]
+```
+
+Solution: "purchase,approve,deliever_carrier,deliever_customer,sent out review survey to customer,customer provides review"
+
+### c. Visualization of the process 
+
+```{r}
+#install.packages("processmapR")
+library(processmapR)
+
+trace_explorer(event_log)
+```
+
+```{r}
+process_map(event_log)
+```
+
+
+### d. How many cases, absolute and relative follow the most frequent process variant
+
+Most frequent process variant: "purchase,approve,deliever_carrier,deliever_customer,sent out review survey to customer,customer provides review"
+
+```{r}
+max(TraceVariantFreq$absolute_frequency)
+```
+
+
+### e. How long are the traces
+
+```{r}
+trace_length(event_log)
+```
+
+The traces have a range between 6 and 10 activities. The mean and the median are at 6 activities.
+
+### f. What are the typical start and end avtivities
+
+```{r}
+start_activities(event_log, level="activity")
+
+end_activities(event_log, level="activity")
+```
+
+The typical start activity is "purchase".
+The typical end activity is "customer provides review".
+
+### g. What are the deviations from the most frequent variant of the process
+
+```{r}
+TraceVariantFreq$trace [7]
+```
+
+Looking at the TraceVariantFreq Subset, we can see that the second most common process variant is "purchase,approve,deliever_carrier,sent out review survey to customer,customer provides review,deliever_customer".
+
+In this process order, the customer provides his feedback before he actually receives the order. All other steps are the same as in the most frequent process variant. So the difference to the most frequent process variant is, that the feedback does not consider the received product. 
+
+
+## 3. Performance and Time Perspective
+
+### a. What are the minimum, maximum and mean throughput time?
+
+```{r}
+throughput_time(event_log)
+```
+
+### b. Performance Map
+
+```{r}
+process_map(event_log, (performance(mean, "days")))
+```
+
+Process Map Interpretaion:
+
+The process maps shows the amount of days that it takes from one process step to the next. In the most frequent process variant, the start activity is "purchase". It takes 0.4 days to the next step "approve", then 2.79 days for "deliver carrier", then 8.04 days to "deliver customer", then 0.4 days to "send out review survey to customer" and finally 3.1 days until the "customer provides feedback".
+
+If Olist wants to save time and deliver orders faster, time could be saved when going from "approve" to "deliver carrier" and from "deliver carrier" to "deliver customer". Especially the last mentioned takes quite long.
+
+
+### c. Dotted Chart
+
+```{r}
+
+dotted_chart(event_log, x="absolute", y="start")
+
+```
+
+Interpretation of the dotted chart:
+
+The dotted chart shows the cases (orders from different customers) dependent of the time. The dots represent different activities. In this chart all processes start at the same time (but it is the process time not the calendar time!). The vertical lines show activities that happened at the same time. From the dotted chart it can be derrived why some processed take longer than others.
+
+In this dotted chart we can see that the delivery of the customer and the feedback provision by the customer take quite long at times. It may shorten the order process if the delivery can be fastened and the customers could be encouraged to provide their feedback faster. 
+
+
+## 4. Satisfaction Analysis: Investigation of drivers of customer satisfaction
+
+### a. Regression Analysis with review score as DV
+
+```{r}
+#regression analysis with avg_desc_length,avg_ph_quality, customer_state, nmb_sellers and voucher as IVs.
+mod1 <- lm(review_score ~ avg_desc_length + avg_ph_quality + customer_state + nmb_sellers + voucher + total_pay_value, data = event_log)
+
+
+summary(mod1)  
+```
+
+The average product descriptions, average photo quality, and number of different sellers have an highly significant influence on the review score. Whether the customer used a voucher or not has no impact. 
+The place of residence a customer lives in sometimes has a significant influence, depending on the federal state he lives in.
+
+The regression however does not explain a large amount of the realisation of the review score as the R² value is low.
+
+There is a mistake present in our current regression model since one order takes on average six rows in the event_log. The transformation in the wide-format would have solved this problem, but following error message appears:
+
+```{r}
+#install.packages("dplyr")
+library(dplyr)
+library(tidyr)
+
+#Try to change event_log from long-format to wide-format. Error when entering code:
+#event_log_spread <- spread(event_log %>% dplyr::select(order_id, activity, timestamp, review_score), 
+#                           activity, timestamp, drop = FALSE)
+
+#Fehler: kann Vektor der Größe 86.7 GB nicht allozieren
+```
+
+### b. Add a variable indicating if an order followed the most common process variant
+
+```{r}
+
+```
+
+### c. Add a variable containing the throughput time
+
+The throughput time is considered to be the time between start activity and end activity.
+
+-> Event Log includes timestamp for activties
+
+```{r}
+#Create data matrix consisting of 
+throughput <- durations(event_log, units = "days")
+
+#Merge with event_log
+event_log <- merge(event_log, throughput, by.x = "order_id", by.y = "order_id")
+
+#Regression model
+mod2 <- lm(review_score ~ avg_desc_length + avg_ph_quality + customer_state + nmb_sellers + voucher + total_pay_value + duration_in_days, data = event_log)
+
+summary(mod2)
+```
+
+Duration_in_days have an highly significant influence on the review_score.
+
+
+### d. Additional variables based on the process analysis
+
+None

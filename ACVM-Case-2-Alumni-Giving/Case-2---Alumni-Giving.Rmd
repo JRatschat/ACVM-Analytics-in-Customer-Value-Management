@@ -1,0 +1,234 @@
+---
+title: "Case Study 2 - Alumni Giving"
+author: "Jonathan Ratschat / Franziska Bülck"
+date: "22.10.2019"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, Warning=FALSE, message=FALSE)
+```
+
+# Preparing dataset 
+
+```{r}
+Data <- read.csv("Data-Alumni-Giving.csv")
+str(Data)
+```
+
+# Description of variables
+
+*SFR (Student-to-faculty ratio):* number of students who attend a university divided by the number of teachers; the lower the ratio, the better
+
+*LT20 (Percentage of classes with fewer than 20 students):* the higher the percentage, the better
+
+*GT50 (Percentage of classes with greater than 50 students):* the lower the percentage, the better
+
+*GRAD (Average six-year graduation rate):* the higher the percentage, the better
+
+*FRR (Freshman retention rate):* number of freshmen in a college or university who return for their sophomore year; the higher the rate, the better
+
+*GIVE (Average alumni giving rate)*: the higher the rate, the better
+
+# Transformation of variables
+
+```{r}
+#Transform ID from integer to factor
+Data$ID <- as.character(Data$ID)
+
+#Vectors in Data containing percentages are saved as factors. Transformation to numeric data
+Data$LT20 <- as.numeric(sub("%", "",Data$LT20,fixed=TRUE))/100
+Data$GT50 <- as.numeric(sub("%", "",Data$GT50,fixed=TRUE))/100
+Data$GRAD <- as.numeric(sub("%", "",Data$GRAD,fixed=TRUE))/100
+Data$FRR <- as.numeric(sub("%", "",Data$FRR,fixed=TRUE))/100
+Data$GIVE <- as.numeric(sub("%", "",Data$GIVE,fixed=TRUE))/100
+
+#Control data structures
+str(Data)
+```
+
+```{r}
+summary(Data)
+```
+ 
+# Create regression model
+ 
+```{r}
+mod1 <- lm(GIVE ~ SFR + LT20 + GT50 + GRAD + FRR, data = Data)
+summary(mod1)
+```
+
+Use of a stepwise regression model to find more convincing model. The function stepAIC chooses the best model by Akaike information criterion (AIC). AIC is an estimator of the relative quality of statistical models for a given set of data. Given a collection of models for the data, AIC estimates the quality of each model, relative to each of the other models. Thus, AIC provides a means for model selection.
+
+
+```{r}
+#install.packages("MASS")
+library(MASS)
+
+#Fit the full model
+full.model <- lm(GIVE ~ SFR + LT20 + GT50 + GRAD, data = Data)
+
+#Stepwise regression model
+step.model <- stepAIC(full.model, direction = "both", trace = FALSE)
+summary(step.model)
+```
+ 
+LT20 and GRAD are highly significant. Therefore, the 0 Hypothesis can be rejected. F-statistic is highly significant as well.
+
+ 
+# Test for Multicollinearity
+
+Multicollinearity is when there is correlation between predictors (i.e. independent variables) in a model. Its presence can adversely affect our regression results.
+
+```{r}
+#install.packages("GGally")
+library(GGally)
+
+#Create correlation matrix
+ggcorr(Data, label = TRUE)
+```
+
+GRAD highly correlates with GIVE, while SFR, LT20, and FRR moderately correlate with GIVE. GT50 has little correlation with GIVE.
+
+SFR and LT20 highly correlate. If FRR would be included in regression model, it could indicate multicollinearity.
+
+FRR and GRAD highly correlate. If FRR would be included in regression model, it could indicate multicollinearity.
+
+GRAD and LT20 moderately correlate, therefore, we assume that multicollinearity is not considered as a problem in step.model.
+
+In the next step, we test the variance inflation factor (VIF). The VIF estimates how much the variance of a regression coefficient is inflated due to multicollinearity in the model. It quantifies the severity of multicollinearity in an OLS regression analysis.
+
+```{r}
+#install.packages("HH") 
+library(HH)
+
+#Calculate VIF per independent variable in model
+vif(step.model)
+
+#Calculate mean of VIFs
+mean(vif(step.model))
+```
+
+An average mean between 1 and 5 indicates a moderate correlated result. In general, a VIF above 10 indicates high correlation and is cause for concern. Some authors suggest a more conservative level of 2.5 or above. Since our average VIF is under 2.5, we assume that multicollinearity is not considered as a problem in step.model.
+
+# Test for Autocorrelation
+
+Autocorrelation means that the residuals correlate with each other. Such correlation is most common in time series analyses, when the independent variables do not adequately cover the cyclical fluctuations in the time series.
+
+We do not excpect autocorrelation to be a problem, but still perform a Durbin-Watson-Test.
+
+```{r}
+#install.packages("lmtest")
+library(lmtest)
+
+dwtest(step.model, data = Data)
+```
+
+Autocorrelation between variables is not an issue.
+
+# Test for Homoscedasticity
+
+Homoscedasticity means that the residuals do not have a constant variance. We need to check if residuals are normally distributed.
+
+```{r}
+shapiro.test(rstandard(step.model))
+```
+
+Shapiro-Wilk-Test of standardized residuals is significant. Residuals differ significantly from normal distribution; assumption of homoscedasticity is violated.
+
+The absence of a normal distribution signifies only that the F- and t-tests are not meaningfully applicable. The estimated regression coefficients are still unbiased.
+
+# Expected value of zero for the residuals E(e~i~) = 0
+
+```{r}
+wilcox.test(rstandard(step.model))
+```
+
+Zero hypothesis cannot be rejected.
+
+The standardized residual is the residual divided by its standard deviation. We use it to show the difference of mean of residuals from 0 graphically.
+
+```{r}
+boxplot(rstandard(step.model)) 
+abline(h=0)
+```
+
+# Thoughts on Endogeneity
+
+Endogeneity means that one or more of the independent variables correlate with the residuals and therefore influences the relationship between the dependent variable and the independent variable. Its existence leads to a systematic distortion of the estimated regression coefficient. It can occur for several reasons, such as an omitted independent variable, simultaneity in the variables, measurement error in an independent variable, autocorrelation with delayed dependent variable, or selfselection.
+
+In our point of view, we should keep in mind that the independent variables of the model could not be the only explainatory variables of GIVE. Besides the variables LT20 and GRAD, we could also include variables like the commuting time, to which extent classes are taught by professors, how great the campus life is, or how strong the researchers of the university are.
+
+# Selection bias
+
+The dataset contains the schools that fielded football teams in the Football Bowl Subdivision (the highest competitive division for U.S. college football). This could lead to problem in the dataset because the included schools were not randomly selected.
+
+# Questions
+
+## School A‘s graduation rate is 10 points higher than school B‘s. How much higher do we expect A‘s giving rate to be?
+
+Regression formula: Predicted GIVE = Intercept + LT20 coefficient * LT20(i) + GRAD coefficient * GRAD(i)
+
+If the other variables are kept constant, then with every increase of GRAD by 100 points, GIVE increases by 0.26064. Therefore, when GRAD is increased by 10 points, then GIVE increases by 0.026064 or 2.6064%.
+
+```{r}
+0.26064*1/10
+```
+
+Since we do not know the other independent variables of school A and school B, we can only say that GRAD of school A leads to an increase in GIVE of 2.6064pps relative to school B's GRAD rate. School B could still have a higher GIVE percentage in total.
+
+## How does the answer to question 1 change if we learn that A and B have identical student-to-faculty ratios?
+
+Our answer does not change since the SFR is not included in our step.model.
+
+## Which of the 123 schools has the most (least) impressive giving rate?
+
+In our opinion, an impresse giving rate is a giving rate that substantially exceeds the predicted giving rate from step.model. We chose a relative approach dividing the difference of predicted and actual GIVE with actual GIVE.
+
+```{r}
+Data$PredictedGIVE <- predict(step.model, Data)
+Data$RelDifGIVE <- (Data$GIVE - Data$PredictedGIVE)/Data$PredictedGIVE
+```
+
+Most impressive schools:
+
+```{r}
+head(Data[order(-Data$RelDifGIVE) ,],n=3)
+```
+
+Least impressive schools:
+
+```{r}
+tail(Data[order(-Data$RelDifGIVE) ,],n=3)
+```
+
+
+## Consider a school similar to ours (i.e., one with the following characteristics): We have a 67% graduation rate and a student-faculty ratio of 1:17, 34% of the classes have fewer than 20 students, 23% of the classes have more than 50 students, and we have a freshman retention rate of 77%. Should this school‘s giving rate be greater than or less than 8%?
+
+For our model, we only need GRAD and LT20 to predict GIVE.
+
+Predicted Give = Intercept + LT20 coefficient * LT20(i) + GRAD coefficient * GRAD(i)
+
+```{r}
+#Upload data in the same format as Data
+NewSchool <- read.csv("New school.csv",sep = ";")
+
+#Show NewSchool
+NewSchool
+
+#Predict GIVE using step.model
+NewSchool$PredictedGIVE <- predict(step.model, NewSchool)
+
+#Inspect data
+NewSchool
+```
+
+The school's giving rate should be greater than 8% since step.models predict a GIVE of 13.78%. Therefore, our school underperforms as it in reality only receives 8%.
+
+# Alternative from class
+
+New method for multicollinearity introduced by classmate:
+
+Ridge regression

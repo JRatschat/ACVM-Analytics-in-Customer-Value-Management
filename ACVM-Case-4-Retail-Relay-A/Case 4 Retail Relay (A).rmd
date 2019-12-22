@@ -1,0 +1,175 @@
+---
+title: "Case 4 Retail Relay (A)"
+author: "Jonathan Ratschat / Franziska Bülck"
+date: "14 11 2019"
+output:
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+# Preparing dataset
+
+## Load dataset
+
+```{r}
+#install.packages("webshot")
+#webshot::install_phantomjs()
+```
+
+
+```{r}
+#install.packages("readxl")
+library(readxl)
+
+Data <- read_excel("Retail-Relay-Full-Data.xls")
+str(Data)
+summary(Data)
+```
+
+## Transformation of variables
+
+```{r}
+#Transform OrderID from num to factor
+Data$OrderId <- as.factor(Data$OrderId)
+
+#Tranform UserID from num to int
+Data$UserId <- as.integer(Data$UserId)
+
+#Transform PupID from numeric to factor
+Data$PupId <- as.factor(Data$PupId)
+
+str(Data)
+```
+
+## Checking for duplicates
+
+```{r}
+cat("The number of non-duplicate observations within the data set is",
+    nrow(unique(Data)), "out of", "\n",
+    nrow(Data),
+    "indicating that there are",
+    nrow(Data)-nrow(unique(Data)),
+    "duplicates within the data set.","\n")
+```
+
+## Creating the cohorts
+
+```{r}
+library(lubridate)
+
+# Getting the first transaction dates for each customer
+join.date <- aggregate(OrderDate~UserId, Data, min, na.rm = TRUE)
+
+# Changing the name of the column InvoiceDate to Join_Date
+# since this is the first transaction date for each customer
+colnames(join.date)[2] <- "JoinDate"
+
+# Merge the Join date data to the Data data frame
+Data <- merge(Data, join.date, by.x = "UserId",by.y = "UserId", all.x = TRUE)
+
+# Creating the groups/Cohorts based on the join date month
+Data$Cohort <- quarter(Data$JoinDate, with_year = TRUE, fiscal_start = 1)
+
+#Remove join.date
+rm(join.date)
+
+str(Data)
+head(Data)
+```
+
+## Cohort age
+
+```{r}
+# Calculating the difference in days between the invoice date column by join date column
+# There is no option for month, but getting the month from the days is simple division
+Data$AgeByDay <- difftime(Data$OrderDate, Data$JoinDate, units = "days")
+
+# Dividing the days by 30 to get the number of months
+Data$AgeByQuarter <- floor(Data$AgeByDay/90) 
+##############################MAKE IT RIGHT GIRL!
+```
+
+# QAU (Quarterly-Active-Users) Mixpanel
+
+```{r}
+# Creating rows for each cohort group
+# Creating columns for each value in the AgeByQuarter column;0-5
+# The default aggregation setup for dcast is, fun.aggregate = length
+cohorts.wide <- reshape2::dcast(Data,Cohort~AgeByQuarter,
+                                value.var="UserId",
+                                fun.aggregate = length)
+
+# Cloning the output for retention and churn mixpanels
+# to be used later
+cw.retention <- cohorts.wide
+cw.churn <- cohorts.wide
+
+# Creating 19 breaks and 20 rgb color values ranging from blue to white
+breaks <- quantile(cohorts.wide[,2:6], probs = seq(.05, .95, .05), na.rm = TRUE)
+colors <- sapply(round(seq(155, 80, length.out = length(breaks) + 1), 0),
+                 function(x){ rgb(x,x,155, maxColorValue = 155) } )
+
+
+# The Retention Mixpanel with counts
+library(DT)
+
+datatable(cohorts.wide,
+              class = 'cell-border stripe',
+             rownames = FALSE,
+             options = list(
+               ordering=F,
+               dom = 't',
+               pageLength = 5) ) %>%
+             formatStyle("0",
+                         backgroundColor = 'lightgrey',
+                         fontWeight = 'bold') %>%
+  formatStyle(names(cohorts.wide[c(-1,-2)]),fontWeight = 'bold',color = 'white', backgroundColor = styleInterval(breaks,colors))
+########################################FRANZI LOOK AT IT
+```
+
+# Retention Rate Mixpanel
+
+```{r}
+# Calculating the percentages. month number/join month number
+# DT will handle the *100 and % formating.
+# The sequence needs to be reversed because if the first
+# column is worked on, everything else will be divided by 1.
+# Instead of formatting column 0 to show 100% for each row, it seems
+# more useful to leave this as the original count, showing how
+# many new customers were acquired in its respective month. This
+# is why the for loop ends right before column 0.
+for (i in rev(3:ncol(cw.retention))){
+  cw.retention[,i] <- round(cw.retention[,i]/cw.retention[,2],4)
+}
+rm(i)
+
+# Cloning the retention mixpanel
+retention.avgs <- cw.retention
+
+# When calculating the column averages, 0 won't get ignored,
+# which is a problem. Converting these 0 to NAs solves this issue.
+retention.avgs[retention.avgs == 0.0000] <- NA
+avgs.ret <- round(apply(retention.avgs[,-1],2,mean, na.rm=TRUE),4)
+
+# We use the zero because this is a numerical vector
+# Changing it after the merge can't happen due to the
+# factoring of the Cohort labels
+avgs.ret <- c(0,avgs.ret)
+
+# Adding the averages row to the retention mixpanel
+cw.retention <- rbind(cw.retention,avgs.ret)
+
+
+cw.retention
+###################################FRANZI LOOK AT IT
+```
+
+
+
+
+
+
+
