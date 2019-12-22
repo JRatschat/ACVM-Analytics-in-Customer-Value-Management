@@ -1,0 +1,286 @@
+---
+title: "05_ProcessMining"
+author: "Nils Gandlau"
+date: "13 12 2019"
+output: 
+  html_document: 
+    fig_height: 6
+    fig_width: 8
+    theme: readable
+---
+
+```{r setup, include=FALSE, echo=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(data.table)
+library(tidyverse)
+library(bupaR)
+library(edeaR)
+library(processmapR)
+
+load('olist_eventlog.RData')
+eventlog <- event_log
+```
+
+## 1. Descriptive Analysis
+
+
+#### a. How many cases (orders) does the event log contain?
+
+We have 24,2120 unique cases/orders.
+
+```{r}
+length(unique(eventlog$order_id))
+```
+
+#### b. How many events does the event log contain?
+
+Each row corresponds to an event. Since we have 144,986 rows, we have 144,968 events.
+
+```{r}
+nrow(eventlog)
+```
+
+#### c. How many unique activities are executed throughout the process?
+
+There are 6 unique activities:
+
+1. purchase
+1. approval
+1. deliver_carrier
+1. deliver_customer
+1. sent out review survey to customer
+1. customer provides review
+
+```{r}
+length(unique(eventlog$activity))
+```
+
+#### d. Summary of event log and visualizations of interesting variables
+
+```{r cache=TRUE}
+summary(eventlog)
+```
+
+
+## 2. Control-Flow Perspective
+
+#### a)
+
+According to the `summary()`-command, there are 31 traces in the event log.
+
+#### b)
+
+The most frequent variant of all traces covers almost 90% of the event log.
+
+```{r echo=FALSE, cache=TRUE}
+eventlog %>% trace_coverage("trace") %>%  plot()
+```
+
+This is the trace
+
+```
+1. purchase
+2. approve
+3. deliver_carrier
+4. deliver_customer
+5. sent out review survey to customer
+6. customer provides review
+```
+
+which occurs 21.583 times (or 89.5%) in the eventlog.
+
+```{r results=FALSE, cache=TRUE}
+traces <- traces(eventlog) %>% setDT()
+traces[absolute_frequency == max(traces$absolute_frequency)]
+```
+
+### c)
+
+#### Process Explorarion
+
+```{r fig.width=12, fig.height=12, cache=TRUE}
+eventlog %>% trace_explorer(coverage = 1)
+```
+
+#### Process map 
+
+```{r}
+eventlog %>% process_map()
+```
+
+#### d) 
+
+The most frequent variant occurs 21.583 times in the eventlog. It takes up 89.5% of all cases. (see b))
+
+#### e)
+
+The traces are on average 6.01 activities long. (See `summary()`)
+
+The shortest trace contains 6 activities. The longest one 10. (see Figure for Exercise 2.c))
+
+```{r}
+eventlog %>% trace_length("log") %>%  plot
+```
+
+
+#### f)
+
+Looking at the `process_map` and the `trace_explorer`, we can see that most cases start with `purchase`-activity, and most cases end with `customer provides survey`.
+
+#### g)
+
+The second and third most frequent variant (making up 4.56% and 3.66% of all cases respectively), deviate from the most frequent variant in terms of ordering of the activities:
+
+* In the most frequent varianet, the (1) order is delivered, then (2) the survey is sent and then (3) the customer provides a review
+* In the 2nd most frequent variant, (2) the survey is sent, (3) the customer provides the review, and (1) the order is delivered to the customer
+* in the 3rd most frequent variant, the (2) surve is sent, then the (1) order is delivered and then (3) the customer provides a review.
+
+
+## 3 Performance/Time Perspective
+
+#### a)
+
+The **throughput time** is defined a sthe time between the first event of a case and the very last.
+
+* the mean throughput time is 15.95 days.
+* the max. throughput time is 522 days
+* the min. throughput time is 2.1 days
+
+```{r warning=FALSE, message=FALSE}
+eventlog %>% throughput_time("log")
+eventlog %>% throughput_time("log", units = "days") %>% plot()
+```
+
+#### b)
+
+```{r}
+eventlog %>% process_map(performance(mean, "days"))
+```
+
+Let $G=(V,E)$ with $V=\{v_1, \dots, v_N\}$ describe the directed graph in the figure. Then, each edge $e_i=(v_i,v_j)$ with $i,j \in \{1,...,N\}$, $i\neq j$ in $G$ is interpreted as follows: The weight of the edge tells you average time passed between the activity $v_i$ and activity $v_j$.
+
+For example, on average, the transition from activity `purchase` to activity `approve` took 0.4 days.
+
+#### c)
+
+In a **dotted graph**, each point corresponds to a single activity. A single case is represented by its dots, which are horizontally aligned. The x-axis represents the timestamp of the activity; the y-axis represents the case. The cases are sorted according to their _starting time_.
+
+* First of all, we note that the horizontal spread of each case hasn't changed much over the years. This indicates that from start to finish, a single case still takes up the same absolute duration.
+* The curvature of in the graph indicates that as the firm ages, more cases are initiated in the same fixed time interval.
+
+```{r message=FALSE, warning=FALSE, cache=TRUE}
+eventlog %>% dotted_chart(x = "absolute", sort = "start")
+```
+
+
+## 4 Satisfaction Analysis
+
+Here, variables that yield information on the duration between individual activities would be of interest:
+
+* the duration between the purchase and approval
+* the duration between approval and delivery
+* the duration between the purchase and delivery
+* the duration between the product delivered and review provided (maybe mad customers provide reviews quicker?)
+
+
+```{r}
+# A function that takes in an eventlog-dataset and creates a column with the 
+# duration (in hours) between the two specified activities.
+CreateDurationVariable <- function(dat, fromActivity, toActivity, colname){
+  data <- copy(dat)
+  
+  data[, fromActivityTimestamp := min(timestamp), by = .(order_id)]
+  data[activity == fromActivity, fromActivityTimestamp := timestamp, by = .(order_id)]
+  data[, fromActivityTimestamp := max(fromActivityTimestamp), by = .(order_id)]
+
+  data[, toActivityTimestamp := min(timestamp), by = .(order_id)]
+  data[activity == toActivity, toActivityTimestamp := timestamp, by = .(order_id)]
+  data[, toActivityTimestamp := max(toActivityTimestamp), by = .(order_id)]
+  
+  data[, newDurationVariable := rep(0, length.out = nrow(data))]
+  data[, newDurationVariable := as.numeric(
+    difftime(toActivityTimestamp, fromActivityTimestamp, units = "days"))]
+  
+  data[, ':='(fromActivityTimestamp = NULL,
+              toActivityTimestamp = NULL)]
+  
+  setnames(data, old="newDurationVariable", new=colname)
+  return(data)
+}
+```
+
+```{r}
+dataRegression <- as.data.table(eventlog)
+dataRegression[, activity := as.character(activity)]
+
+
+# Create variable for the duration between purchase and delivery (to customer)
+dataRegression <- CreateDurationVariable(
+  dat = dataRegression,
+  fromActivity = "purchase",
+  toActivity = "deliever_customer",
+  colname = "durPurchaseToDelivery"
+)
+
+# Create variable for the duration between purchase and approval
+dataRegression <- CreateDurationVariable(
+  dat = dataRegression,
+  fromActivity = "purchase",
+  toActivity = "approve",
+  colname = "durPurchaseToApproval"
+)
+
+# Create variable for the duration between approval and delivery
+dataRegression <- CreateDurationVariable(
+  dat = dataRegression,
+  fromActivity = "approve",
+  toActivity = "deliever_customer",
+  colname = "durApprovalToDelivery"
+)
+
+# Create variable for the duration between approval and delivery
+dataRegression <- CreateDurationVariable(
+  dat = dataRegression,
+  fromActivity = "deliever_customer",
+  toActivity = "customer provides review",
+  colname = "durDeliveryToReview"
+)
+```
+
+
+
+```{r}
+# Remove variables that are non-relevant for regression 
+dataRegression <- dataRegression %>% 
+  select(-starts_with("max"),
+         -ends_with("date"),
+         -c("activity_instance",
+            "status",
+            "timestamp",
+            ".order",
+            "activity",
+            "customer_state")) %>% 
+  setDT()
+
+# Retain a single row for each case (Before, for each order there were several rows)
+dataRegression <- dataRegression[!duplicated(dataRegression$order_id)]
+
+# Further remove non-relevant variables
+dataRegression <- dataRegression %>% select(-ends_with("id"))
+```
+
+
+```{r}
+simpleLinearModel <- lm(review_score ~ ., dataRegression)
+summary(simpleLinearModel)
+```
+
+Using this regression model, we note that
+
+* the duration between purchase and delivery to customer has a significant negative relationship with review score: With an increased duration of 1 day, one expects a review with 0.045 less stars.
+* the duration between delivery and review has a significant positive relationship with review score: With an increased duration of 1 day, one expects a review score that is 0.001 higher. Maybe people who had a positive shopping experience take their time with the review. Customers who are unsatisfied may feel the urge to express their dissatisfaction immediatly.
+* There is a positive relationship between purchase size and review_score: A 1 USD (?) increase in `total_pay_value` corresponds to an expected increase in review_score of 0.002 stars.
+* ...
+
+

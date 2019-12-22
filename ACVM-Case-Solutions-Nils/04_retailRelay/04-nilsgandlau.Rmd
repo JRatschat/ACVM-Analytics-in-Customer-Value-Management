@@ -1,0 +1,363 @@
+---
+title: "CaseStudy-04: Retail Relay"
+author: "Nils Gandlau"
+date: "19 11 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE, message=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(data.table)
+library(tidyverse)
+library(readxl)
+library(magrittr) # for %<>% operator 
+
+# Load data
+dataMainFull <- as.data.table(read_xlsx(path = "retailRelay.xlsx", sheet = 1))
+dataMainPilot <- as.data.table(read_xlsx(path = "retailRelay.xlsx", sheet = 2))
+dataTransitionFull <- as.data.table(read_xlsx(path = "retailRelay.xlsx", sheet = 3))
+dataTransitionPilot <- as.data.table(read_xlsx(path = "retailRelay.xlsx", sheet = 4))
+
+# Rename Variables
+dataMainPilot %<>% rename(OrderId = `Order Id`)
+
+dataTransitionFull[, ':='(
+  transProb = as.numeric(`Transition Probability`),
+  purchaseOccasion = `Purchase Occasion`,
+  avgBasketSize = `Average Basket Size`
+)]
+dataTransitionPilot[, ':='(
+  transProb = as.numeric(`Transition Probability`),
+  purchaseOccasion = `Purchase Occasion`,
+  avgBasketSize = `Average Basket Size`
+)]
+
+dataTransitionFull <- dataTransitionFull[, c("purchaseOccasion", "transProb", "avgBasketSize")]
+dataTransitionPilot <- dataTransitionPilot[, c("purchaseOccasion", "transProb", "avgBasketSize")]
+
+# Transforming dates
+dataMainFull[, ':='(orderYear = lubridate::year(OrderDate),
+                    orderMonth = lubridate::month(OrderDate),
+                    orderDay = lubridate::day(OrderDate))]
+dataMainPilot[, ':='(orderYear = lubridate::year(OrderDate),
+                    orderMonth = lubridate::month(OrderDate),
+                    orderDay = lubridate::day(OrderDate))]
+```
+
+## Research Question
+
+Are you happy with the development of the customer base?
+
+## Data
+
+
+## Transition
+
+```{r}
+dataTransitionFull[, label := "full"]
+dataTransitionPilot[, label := "pilot"]
+dataTransition <- rbind(dataTransitionFull, dataTransitionPilot)
+
+# Compute average Transition
+dataTransitionFull[, transProbPilot := dataTransitionPilot$transProb]
+dataTransitionFull[, avgBasketSizePilot := dataTransitionPilot$avgBasketSize]
+dataTransitionFull[, avgTransition := 0.5 * (transProb + transProbPilot)]
+dataTransitionFull[, avgAvgBasketSize := 0.5 * (avgBasketSize + avgBasketSizePilot)]
+dataTransitionAvg <- dataTransitionFull[, c("purchaseOccasion", "avgTransition", "avgAvgBasketSize")]
+setnames(dataTransitionAvg, c("purchaseOccasion", "transProb", "avgBasketSize"))
+dataTransitionAvg[, label := "average"]
+
+dataTransition <- rbind(dataTransition, dataTransitionAvg)
+
+head(dataTransition)
+```
+
+```{r warning=FALSE}
+ggplot(dataTransition, aes(x = purchaseOccasion, y = transProb, color = label)) +
+  geom_line(size=1) +
+  geom_point() +
+  theme_minimal() +
+  xlim(c(1, 30)) +
+  ylim(c(0, 1))
+```
+
+## Customer base
+
+```{r}
+# Can the same OrderId occur multiple times? => NO.
+length(unique(dataMainFull$OrderId))
+```
+
+
+```{r}
+# Construct purchaseOccasion
+dataMainFull[, purchaseOccasion := frank(OrderId), by = UserId]
+dataMainPilot[, purchaseOccasion := frank(OrderId), by = UserId]
+```
+
+
+```{r}
+# How many users in pilot vs full study?
+length(unique(dataMainPilot$UserId))
+length(unique(dataMainFull$UserId))
+```
+
+
+```{r}
+# Does dataMainFull include the same data for a customer?
+y <- sapply(unique(dataMainPilot$UserId), function(userId){
+  dt1 <- dataMainPilot[UserId == userId]
+  dt1 <- as.data.frame(dt1[, c("UserId", "OrderId", "OrderDate")])
+  
+  dt2 <- dataMainFull[UserId == userId]
+  dt2 <- as.data.frame(dt2[, c("UserId", "OrderId", "OrderDate")])
+  
+  return(nrow(dt1) == nrow(dt2))
+})
+
+all(y)
+```
+
+
+## Defining cohorts
+
+What's the time span of full vs pilot
+
+```{r}
+min(dataMainPilot$OrderDate)
+max(dataMainPilot$OrderDate)
+cat("")
+min(dataMainFull$OrderDate)
+max(dataMainFull$OrderDate)
+```
+
+How many people are in January 2009, Februrary 2009, .... (in each month)
+
+```{r}
+dataMainFull %>%
+  group_by(orderYear, orderMonth) %>% 
+  distinct(UserId) %>% 
+  count()
+```
+
+```{r}
+dataMainPilot %>%
+  group_by(orderYear, orderMonth) %>% 
+  distinct(UserId) %>% 
+  count()
+```
+
+### Cohorts
+
+Cohort := customers that joined in the same month
+
+We have 12+3=15 months in the data. So we will build 15 cohorts.
+
+```{r}
+# Assigning customers to cohorts 1,...,15
+dataMainFull[, cohort := rep(0, nrow(dataMainFull))]
+dataMainFull[, cohort := ifelse(orderYear == 2009, min(orderMonth), 0), by = UserId]
+dataMainFull[, cohort := max(cohort), by = UserId]
+dataMainFull[orderYear == 2010, cohort := ifelse(cohort == 0, min(orderMonth) + 12, cohort), by = UserId]
+```
+
+```{r}
+# Number of customers by cohort
+dataByCohort <- dataMainFull %>% 
+  mutate(cohort = as.factor(cohort)) %>% 
+  group_by(cohort) %>% 
+  summarise(nCustomers = n_distinct(UserId))
+
+ggplot(dataByCohort, aes(x = cohort, y = nCustomers, fill = cohort)) +
+  geom_col() +
+  geom_text(aes(label = nCustomers), vjust = -0.2)
+```
+
+```{r fig.width=12}
+# Number of Customers by cohort and purchase Occasion (relevant for Aussagekraft of plot below)
+dataByCohortPurchase <- dataMainFull %>% 
+  mutate(cohort = as.factor(cohort)) %>% 
+  group_by(cohort, purchaseOccasion) %>% 
+  summarise(nCustomers = n_distinct(UserId)) %>% 
+  filter(purchaseOccasion %in% c(0:40))
+
+ggplot(dataByCohortPurchase, aes(x = purchaseOccasion, y = cohort, fill = nCustomers)) +
+  geom_tile(color = "black") +
+  geom_text(aes(label = nCustomers), size = 3.5) +
+  scale_fill_gradient(low = "white", high = "darkgreen")
+```
+
+
+Average basket size by cohort 
+
+```{r}
+dataPlt1 <- dataMainFull %>% 
+  group_by(cohort, purchaseOccasion) %>% 
+  summarise(avgOrder = round(mean(TotalCharges, na.rm=T),0)) %>%
+  ungroup() %>% 
+  mutate(cohort = as.factor(cohort))
+
+dataPlt1
+```
+
+
+```{r fig.width = 12}
+# Note that we can't trust these averages because they're computed based on a single customer.... that's kind of stupid.!
+
+# Average order-volume ($) by purchase occasion and cohort
+ggplot(dataPlt1 %>% filter(purchaseOccasion %in% 1:40), aes(x = purchaseOccasion, y = cohort, fill = avgOrder)) +
+  geom_tile(color = "black") +
+  geom_text(aes(label = avgOrder), size = 3.5) +
+  scale_fill_gradient(low = "white", high = "darkgreen") +
+  theme_minimal()
+```
+
+
+```{r}
+ggplot(dataPlt1, aes(x = purchaseOccasion, y = avgOrder, fill = cohort)) +
+  geom_area(color = "black", alpha = 0.8, position = "dodge")
+```
+
+```{r}
+ggplot(dataPlt1, aes(x = purchaseOccasion, y = avgOrder, fill = cohort)) +
+  geom_col(position = "stack", alpha = 1)
+```
+
+```{r}
+dataPlt1 %>% filter(cohort %in% 14:15) %>% filter(purchaseOccasion %in% 30:60)
+```
+
+```{r}
+max(dataPlt1$purchaseOccasion) 
+```
+
+```{r}
+ggplot(dataPlt1, aes(x = purchaseOccasion, y = avgOrder)) +
+  geom_line() +
+  facet_wrap(~cohort)
+```
+
+
+#### Purchase quality by cohort
+
+```{r}
+dataByCohort <- dataMainFull %>% 
+  mutate(cohort = as.factor(cohort)) %>% 
+  group_by(cohort) %>% 
+  summarise(
+    nCustomers = n_distinct(UserId),
+    maxPurchaseOccasion = max(purchaseOccasion),
+    nPurchases = n_distinct(OrderId),
+    cumulativeOrderSize = sum(TotalCharges),
+    avgOrderSize = mean(TotalCharges),
+    nPurchasesPerCustomer = round(nPurchases / nCustomers, 0),
+    orderSizeDensity = round(cumulativeOrderSize / nPurchases / maxPurchaseOccasion / nCustomers, 4)
+  )
+
+dataByCohort
+```
+
+```{r fig.width=12}
+# note: possibly add "percentile" => how many % of customers make 90% of orders? 
+# include timespan => cohort 1 has more purchases because it's over a longer timespan
+
+subtitle = "U = Number of Users
+P = Number of Purchases 
+PpC = P/U = Number of purchases per User"
+
+# Average order volume by cohort
+ggplot(dataByCohort, aes(x = cohort, y = avgOrderSize, fill = cohort)) + 
+  geom_col() +
+  geom_text(aes(label = paste0(nCustomers, " U \n", nPurchases, " P \n", nPurchasesPerCustomer, " PpC")), size = 3, vjust = -0.5) +
+  geom_text(aes(label = paste0(round(avgOrderSize, 0), "€")), vjust = 1.5) +
+  ylim(c(0, 90)) +
+  theme_minimal() +
+  ggtitle("Average Order-Size ($) for each cohort", 
+          subtitle = subtitle)
+```
+
+For example, in cohort 15 there was a total of 2213€ made over 55 purchases, distributed over 9 purchase occasions and 37 customers. Hence the "density" is 2213/55/9/37=0.88. In other words, customers in cohort 15 seem to spend more in less occasions. 
+
+```{r}
+# € Density
+ggplot(dataByCohort, aes(x = cohort, y = orderSizeDensity, fill = cohort)) +
+  geom_col() +
+  ggtitle("€ per Customer/Occasions/Purchases [Density] ")
+```
+
+
+
+## Higher aggregate cohorts (5-Month-Cohorts)
+
+```{r}
+dataMainFull[, cohort5month := ifelse(cohort %in% c(1:5), 1, ifelse(cohort %in% c(6:10), 2, 3))]
+
+dataCohort5month <- dataMainFull %>% 
+  mutate(cohort5month = as.factor(cohort5month)) %>% 
+  group_by(cohort5month, purchaseOccasion) %>% 
+  summarise(
+    nCustomers = n_distinct(UserId),
+    cumulativeOrderSize = sum(TotalCharges),
+    avgOrderSize = mean(TotalCharges),
+    stddevOrderSize = sd(TotalCharges)
+    )
+```
+
+
+```{r fig.width=12}
+# Average order-volume ($) by purchase occasion and cohort
+ggplot(dataCohort5month %>% filter(purchaseOccasion %in% 1:15), aes(x = purchaseOccasion, y = cohort5month, fill = avgOrderSize)) +
+  geom_tile(color = "black") +
+  geom_text(aes(label = paste0(round(avgOrderSize,0), "€ \n", "sd=", round(stddevOrderSize,0), "\n","(N=", nCustomers, ")")), size = 3) +
+  scale_fill_gradient(low = "white", high = "darkgreen") +
+  theme_minimal() + 
+  ggtitle("Purchases of 5-month cohorts",
+          subtitle = "sd = standard deviation of the order size (€) in the given tile
+N = number of customers in the given tile")
+```
+
+## Quarterly Cohorts
+
+```{r}
+# Defining quarterly cohorts
+dataMainFull[, cohortQuarter := ifelse(
+  cohort %in% c(1:3),
+  1, 
+  ifelse(
+    cohort %in% c(4:6),
+    2,
+    ifelse(
+      cohort %in% c(7:9),
+      3,
+      ifelse(
+        cohort %in% c(10:12),
+        4,
+        5))))]
+
+dataCohortQuarter <- dataMainFull %>% 
+  mutate(cohortQuarter = as.factor(cohortQuarter)) %>% 
+  group_by(cohortQuarter, purchaseOccasion) %>% 
+  summarise(
+    nCustomers = n_distinct(UserId),
+    cumulativeOrderSize = sum(TotalCharges),
+    avgOrderSize = mean(TotalCharges),
+    stddevOrderSize = sd(TotalCharges)
+    )
+```
+
+```{r fig.width=12}
+# Average order-volume ($) by purchase occasion and cohort
+ggplot(dataCohortQuarter %>% filter(purchaseOccasion %in% 1:20), aes(x = purchaseOccasion, y = cohortQuarter, fill = avgOrderSize)) +
+  geom_tile(color = "black") +
+  geom_text(aes(label = paste0(round(avgOrderSize,0), "€ \n", "sd=", round(stddevOrderSize,0), "\n","(N=", nCustomers, ")")), size = 3) +
+  scale_fill_gradient(low = "white", high = "darkgreen") +
+  theme_minimal() + 
+  ggtitle("Purchases of quarterly cohorts",
+          subtitle = "sd = standard deviation of the order size (€) in the given tile
+N = number of customers in the given tile")
+```
+
+## Cohort size
+
+Reconstructing cohort size by assuming sampled uniformly from all customers. Proportion in sample represents somewhat approx. the growth of number of customers.

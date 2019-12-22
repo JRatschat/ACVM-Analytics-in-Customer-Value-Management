@@ -1,0 +1,84 @@
+knitr::opts_chunk$set(echo = TRUE)
+library(data.table)
+library(tidyverse)
+library(readxl)
+library(survival)   # Survival models
+library(survminer)  # Survival plots
+library(kableExtra) # HTML Table Formatting
+dtOrig <- as.data.table(
+read_xlsx(path = "saving_customers.xlsx")
+)
+dtOrig <- dtOrig %>%
+rename(saveID = "SaveID",
+offer = "Offer",
+saveMonth = "SaveMonth",
+discoMonth = "DiscoMonth")
+dt <- copy(dtOrig)
+str(dt)
+dt[, saveID := NULL]
+dt[, survivalTime := discoMonth - saveMonth]
+dt[, eventOccurred := ifelse(is.na(discoMonth), 0, 1)]
+dt[is.na(survivalTime), survivalTime := 9]
+dt[offer == "O", offer := "_O"]
+cox <- coxph(Surv(survivalTime, eventOccurred) ~ offer, data = dt)
+summary(cox)
+# Function for automated interpretation
+interpretCoxPH <- function(coefName, expCoefValue){
+expCoefValue <- round(expCoefValue, 2)
+interpretation <- paste0(
+"At any time t, customers that received offer ",
+str_sub(coefName, -1),
+" have a risk that is  ",
+expCoefValue,
+" times as high as the reference offer O."
+)
+}
+# Create table that summarizes the results nicely
+resultCox <- rbindlist(lapply(names(cox$coefficients), function(coefName){
+coefValue <- cox$coefficients[[coefName]]
+expCoefValue <- exp(coefValue)
+interpretation <- interpretCoxPH(coefName, expCoefValue)
+return(data.table(
+coefficient = coefName,
+value = coefValue,
+`exp(value)` = expCoefValue,
+interpretation = interpretation
+))
+}))
+resultCox[, c("interpretation")]
+aft <- survreg(Surv(survivalTime, eventOccurred) ~ offer,
+data = dt,
+dist="weibull")
+summary(aft)
+# Create a nicely formatted table that summarizes the AFT model's result
+aftResult <- rbindlist(lapply(names(aft$coefficients), function(coefName){
+coefValue <- aft$coefficients[[coefName]]
+accelerationParameter <- round(exp(coefValue), 2)
+interpretation <- ""
+if (startsWith(coefName, "offer")){
+interpretation <- paste0(
+"A customer that received Offer ",
+str_sub(coefName, -1), # extract last character of string
+" lives ",
+accelerationParameter,
+" times as long as the reference group (offer O)."
+)
+}
+return(data.table(
+` coefficient ` = coefName,
+` value ` = round(coefValue, 4),
+`__exp(value)` = accelerationParameter,
+interpretation = interpretation
+))
+}))
+aftResult[, 1:3]
+aftResult[, c("interpretation")]
+km <- survfit(Surv(survivalTime, eventOccurred) ~ offer,
+data = dt,
+type = "kaplan-meier")
+ggsurvplot(km,
+ggtheme = theme_classic(),
+size=2,
+alpha = 0.8,
+palette = c('#e6194b', '#3cb44b', '#ffe119', '#4363d8', '#f58231', '#911eb4', '#46f0f0', '#f032e6', '#bcf60c', '#fabebe', '#008080', '#e6beff', '#9a6324', '#fffac8', '#800000', '#aaffc3', '#808000', '#ffd8b1', '#000075', '#808080', '#ffffff', '#000000'))
+unlink('solution_casestudy03_cache', recursive = TRUE)

@@ -1,0 +1,298 @@
+---
+title: '01 - Case Study: Pilgrim Online Banking'
+author: "Nils Gandlau (Student-ID: 5467868)"
+date: "15 10 2019"
+output:
+  pdf_document:
+    toc: yes
+  html_document:
+    highlight: tango
+    theme: readable
+    toc: yes
+---
+
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+library(tidyverse)
+library(data.table)
+library(readxl)
+library(cowplot)
+
+dataOriginal <- readxl::read_xls(path = "pilgrim_data.xls")
+dataOriginal <- as.data.table(dataOriginal)
+
+PlotCorrelationMatrix <- function(cormatrix) {
+  
+  return(ggplot(data = reshape2::melt(cormatrix), aes(x = Var1, y = Var2, fill = value)) +
+  geom_tile(color = "white") +
+  scale_fill_gradient2(
+    low = "blue",
+    high = "red",
+    mid = "white",
+    midpoint = 0,
+    limit = c(-1, 1),
+    space = "Lab",
+    name = "Correlation"
+  ) +
+  theme_minimal() +
+  geom_text(aes(Var2, Var1, label = value),
+            color = "black",
+            size = 4) +
+  theme(
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.border = element_blank(),
+    panel.background = element_blank(),
+    axis.ticks = element_blank(),
+    legend.direction = "horizontal"
+  ) +
+  guides(fill = guide_colorbar(
+    barwidth = 7,
+    barheight = 1,
+    title.position = "top",
+    title.hjust = 0.5
+  )))
+}
+
+```
+
+## Data Cleaning
+
+Renaming variables for convenience:
+
+```{r}
+data <- dataOriginal %>% 
+  rename(profit = "9Profit",
+         online = "9Online",
+         age = "9age",
+         income = "9Inc",
+         tenure = "9Tenure",
+         district = "9District") 
+
+str(data)
+```
+
+Should we encode `district` as a factor? How many unique values does the feature have?
+
+```{r}
+unique(data$district)
+```
+
+Convert some columns to factor variables. This is important for regression models.
+
+```{r}
+data <- data %>% 
+  mutate(online = as.factor(online),
+         age = as.factor(age),
+         income = as.factor(income),
+         district = as.factor(district)) %>% 
+  setDT()
+
+str(data)
+```
+
+
+### Missing Values
+
+Count the number of NAs for each variable.
+
+```{r}
+nas <- rbindlist(lapply(names(data), function(colname) {
+  nMissingValues <- sum(is.na(data[, get(colname)]))
+  return(data.table(feature = colname, number_of_nas = nMissingValues))
+}))
+
+nas
+```
+
+Age and income have roughly the same number of missing values: Is that coincidence, or can we say that when we don't know the age of a person, we also don't know her age? To answer this, we count the number of rows for which *both* age and income are NA.
+
+```{r}
+data[, age_and_income_missing := ifelse(is.na(age) & is.na(income), 1, 0)]
+cat("n_rows where both age and income are NA:", sum(data$age_and_income_missing))
+data[, age_and_income_missing := NULL]
+```
+
+So yes, in most rows where either age or income are missing, both age and income are missing. Hence, we know that when we remove all rows that contain a missing value anywhere, we will remove roughly 8000 -- which is not too bad considering we have 30k observations in total.
+
+```{r}
+# Remove all rows that contain at least one NA
+dataCleaned <- na.omit(data)
+
+# Total rows removed
+cat("Rows removed:", nrow(data) - nrow(dataCleaned))
+```
+
+
+## Data Exploration
+
+<!-- ### Counting  -->
+
+
+<!-- ```{r} -->
+<!-- (nOnlinesOfflines <- data.table( -->
+<!--   n_onlines = nrow(data[online == 1]), -->
+<!--   n_offlines = nrow(data[online == 0]) -->
+<!-- )) -->
+<!-- ``` -->
+
+### Plotting Features against Target
+
+Plot each predictor against the target variable respectively. This way we get a first impression on their relationships.
+
+```{r}
+par(mfrow = c(2, 3))
+plot(profit~., data %>% select(-ID))
+```
+
+* We notice that age and income show a similar pattern, reinforcing the intution that those two predictors are probably correlated: One would think that income increases when you get older.
+
+### Distribution of profits across online/offline customers
+
+* The profits of online & offline customers seem to resemble a pareto-distribution
+* The highest-profitable customers are offline (this might be because we simply have a lot more offline customres in the data than online customers)
+* The mass of slightly profitable customers seems to be larger for online customers
+
+```{r}
+ggplot(data, aes(y = profit, x = online)) +
+  geom_violin()
+```
+
+### Correlation Matrix
+
+We check for correlation across all variables, since we want to avoid the issues of **multicolinearity** (correlated predictors).
+
+```{r}
+dataCor <- dataCleaned[, c("profit", "online", "age", "income", "tenure", "district")]
+dataCor <- dataCor[, ':='(
+  online = as.numeric(online),
+  age = as.numeric(age),
+  income = as.numeric(income),
+  district = as.numeric(district)
+)]
+
+cormatrix <- round(cor(dataCor), 2)
+PlotCorrelationMatrix(cormatrix)
+```
+
+
+* Against intution, age seems to be only weakly correlated with income. Moreover, against intuition, it seems to be *negatively* correlated with income. Recall that correlation checks only for a linear relationship between two variables, there might be a e.g. a polynomial relationship (young people have no money, middle-aged people have a lot of money, old people again have less money).
+* age is strongly positively correlated with tenure => we should avoid including both as predictors in our regression model.
+* age and being online are negatively correlated (this reinforces the intuition that older people are less likely to use online banking) => We may also avoid including both as predictors
+* Since `age` and `tenure` are highly correlated and `tenure` and `online` aren't, we may include `tenure` in our regression and leave age out.
+
+### Relationship between `profit` and `age`
+
+```{r warning=FALSE, fig.height=6, fig.width=10}
+p1 <- ggplot(dataCleaned, aes(x = age, y = profit)) +
+  geom_jitter(alpha = 0.2)
+
+p2 <- ggplot(dataCleaned, aes(x = age, y = profit)) +
+  geom_histogram(stat = "identity")
+
+cowplot::plot_grid(p1, p2, nrow = 1)
+```
+
+* there seems to be a non-linearity in the relationship between `profit` and `age`. If age were a continuous feature,we might have used a polynomial of degree 2 or 3 to estimate their relationship.
+
+
+### Relationship between `age` and `income`
+
+```{r warning = FALSE, message = FALSE}
+dataHist <- rbindlist(lapply(unique(dataCleaned$age), function(ageCategory) {
+    
+    incomeOfAge <- dataCleaned[age == ageCategory, get("income")]
+    incomeOfAge <- as.numeric(as.character(incomeOfAge))
+    meanIncomeOfAge <- mean(incomeOfAge)
+    
+    return(
+      data.table(
+        age = ageCategory,
+        meanIncome = meanIncomeOfAge
+      )
+    )
+}))
+
+ggplot(dataHist, aes(x = age, y = meanIncome)) + 
+  geom_histogram(stat = "identity") +
+  ggtitle("Polynomial relationship between age & income")
+```
+
+* that's why $cor_\text{age,income}=-0.07$ was misleading.
+* correlation-coefficient, which checks for linear relationship only, isn't able to capture the polynomial (degree-2 or possibly degree-3) relationship between age and income
+
+## Findings & Ideas
+
+* most users of online-banking are middle-aged
+* middle-aged people have the highest income
+* high-income (middle-aged!) customers yield largest profits
+
+
+* We have to ask whether the effect of being online changes with income -- I would assume that for customers in their 20s, the effect of using online-banking is not too large, since they don't have money anyway. They might even be negative, since online-banking makes smaller, non-profitable transactions more convenient, thus driving up costs. **Thus we might consider the interaction `age * online` for the regression model.**
+* Note that online-banking should in general increase interactions of customers with the bank. Thus we have to think about what type of people buy those high-margin financial products the bank offers. High-margin financial products are probably investment products, and so these are most interesting for (1) rich and (2) middle-aged people, since they have both the *financial resources* and an *available time-horizont* to benefit from interest rates.
+
+
+## Linear Regression
+
+```{r}
+linreg <- lm(profit ~ online + age + income + online*age + online*income + district, data = dataCleaned)
+summary(linreg)
+```
+
+* The benefits of online-banking differ among different age-groups
+* There is a significant positive influence on profits when middle-aged customers use online-banking:
+  - middle-aged people have the both the desire and resources to invest, and therefore use financial instruments that are more profitable for the bank. Making the handling of financial instruments easier with the help of online-banking may increase these types of interactions.
+* The interaction effects of `online` and `income` indicate that online-banking might be less beneficial for customers in low-income categories. This reinforces the intuition that online-banking increases the frequency of the number of interactions between the customer and the bank, driving up costs for the bank. And the type of interactions that low-income customers make are often less profitable (e.g. small, frequent transactions)
+* The bank should therefore try to get more rich and middle-aged people into using online-banking.
+* The bank should avoid low-income pepole from using online-banking.
+
+#### Problems
+
+* We have seen that there is significant negative correlation between features `age` and `online` ($\rho = -0.17$). Thus, our regression coefficients might be biased due to multicolinearity.
+* We note that `tenure` is highly correlated with `age` ($\rho = 0.42$). Further, `tenure` is less correlated with `online` ($\rho=-0.08$) than age is. Thus, we may repeat the same linear regression but replace `age` with `tenure`.
+
+```{r}
+linreg <- lm(profit ~ online + tenure + income + online*income + district, data = dataCleaned)
+summary(linreg)
+```
+
+* using online-banking has a significant, positive effect on profits for the highest-income class. Again reinforcing the intuition that the highest-income class buys more profitable financial products, and since online-banking makes it easier for them to do so, they may buy more and thus boost profits.
+* Recall that middle-aged people were the richest -- hence these findings are in that sense related to our first regression.
+
+### Sanity check of findings
+
+We can also do a rough sanity check on the hypothesis that *online-banking is most beneficial for middle-aged customers*. Below, we compute for each age category the relative amount of online (offline) customers that have yielded above-average profits (compared to their age-category's specific average).
+ 
+```{r}
+# Convert profits to a binary feature that indicates whether a customer
+# yielded an above-average profit
+dataCleaned[, meanProfit := mean(profit), by = age]
+dataCleaned[, isAboveMeanProfit := profit >= meanProfit]
+
+results <- rbindlist(lapply(unique(dataCleaned$age), function(ageCategory) {
+  dataTemp <- dataCleaned[age == ageCategory]
+  
+  nOnline <- nrow(dataTemp[online == 1])
+  nOnlineAboveMeanProfits <- nrow(dataTemp[isAboveMeanProfit == 1 & online == 1])
+  
+  nOffline <- nrow(dataTemp[online == 0])
+  nOfflineAboveMeanProfits <- nrow(dataTemp[isAboveMeanProfit == 1 & online == 0])
+
+  return(data.table(
+    ageCategory = ageCategory,
+    percOnlineAboveMeanProfits = round(nOnlineAboveMeanProfits / nOnline, 2),
+    percOfflineAboveMeanProfits = round(nOfflineAboveMeanProfits / nOffline, 2)
+  ))
+}))
+
+results[order(ageCategory)]
+```
+
+* Across all age-groups, there seems to be a positive effect of using online-banking
+* Note that the largest difference (in terms of percentage points) is found for middle-aged customers, with gains of 5-7 percentage points.
+
+## Further Ideas
+
+* *Partialing out*: By regressing `income ~ age + age**2` we get information on how much age explains income. The residuals are then those variations in income that are not explained by age. We could then put these into our regression `profit ~ ...`. 
+* *Mediation Analysis*: A more sophisticated way to look for causal relationship between `profit` and `online`.

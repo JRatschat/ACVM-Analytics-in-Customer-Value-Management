@@ -1,0 +1,124 @@
+ID,School,SFR,LT20,GT50,GRAD,FRR,GIVE
+1,Arizona State University,24,42%,16%,59%,81%,8%
+2,Arkansas State University—Jonesboro,19,49%,4%,37%,69%,11%
+3,Auburn University,18,24%,17%,66%,87%,31%
+4,United States Air Force Academy,8,74%,0.10%,81%,88%,11%
+5,United States Military Academy,8,95%,0%,86%,92%,28%
+6,University of Akron,20,39%,6%,35%,69%,15%
+7,University of Arizona,20,35%,17%,60%,79%,5%
+8,University of Arkansas,18,28%,18%,58%,83%,23%
+9,Ball State University,18,34%,12%,57%,78%,11%
+10,Baylor University,14,49%,9%,71%,85%,14%
+11,Boise State University,21,33%,11%,27%,67%,8%
+12,Boston College,14,47%,6%,91%,96%,27%
+13,Bowling Green State University,19,33%,7%,61%,75%,8%
+14,Brigham Young University—Provo,21,46%,12%,78%,84%,17%
+15,University at Buffalo—SUNY,16,36%,21%,67%,88%,9%
+16,University of Alabama,19,46%,16%,67%,85%,34%
+17,Central Michigan University,22,32%,11%,54%,78%,8%
+18,Clemson University,16,51%,13%,76%,91%,28%
+19,Colorado State University,18,34%,19%,64%,83%,7%
+20,University of California—Berkeley,17,62%,15%,91%,97%,12%
+21,University of Cincinnati,17,38%,11%,56%,84%,11%
+22,University of Colorado—Boulder,18,38%,16%,68%,84%,8%
+23,California State University—Fresno,20,18%,10%,49%,83%,4%
+24,Duke University,8,71%,6%,94%,97%,36%
+25,East Carolina University,17,33%,14%,57%,78%,5%
+26,Eastern Michigan University,18,39%,5%,38%,72%,3%
+27,Florida Atlantic University,21,27%,15%,42%,77%,4%
+28,Florida International University,28,23%,22%,46%,81%,6%
+29,Florida State University,22,35%,16%,74%,90%,19%
+30,University of Connecticut,18,44%,17%,81%,93%,17%
+31,University of Florida,21,41%,16%,84%,96%,15%
+32,Georgia Institute of Technology,19,40%,23%,80%,93%,28%
+33,Georgia State University,20,14%,16%,48%,83%,6%
+34,University of Georgia,19,35%,12%,82%,94%,14%
+35,University of Hawaii—Manoa,14,45%,10%,50%,78%,8%
+36,University of Houston,23,28%,22%,46%,79%,13%
+37,Indiana University—Bloomington,19,34%,18%,71%,90%,16%
+38,Iowa State University,17,30%,20%,70%,85%,15%
+39,Kansas State University,21,49%,11%,60%,79%,19%
+40,Kent State University,20,45%,8%,50%,76%,4%
+41,University of Idaho,18,45%,10%,55%,78%,11%
+42,University of Illinois—Urbana-Champaign,16,34%,21%,84%,94%,13%
+43,University of Iowa,16,49%,12%,70%,84%,12%
+44,University of Kansas,20,42%,12%,61%,79%,18%
+45,University of Kentucky,18,30%,16%,58%,80%,12%
+46,Louisiana State University—Baton Rouge,22,34%,19%,61%,85%,14%
+47,Louisiana Tech University,22,48%,9%,49%,73%,13%
+48,University of Louisiana—Lafayette,23,30%,7%,40%,74%,7%
+49,University of Louisiana—Monroe,18,30%,13%,30%,72%,5%
+50,University of Louisville,18,25%,12%,49%,78%,12%
+51,Marshall University,20,38%,4%,44%,71%,10%
+52,Miami University—Oxford,17,32%,12%,80%,89%,16%
+53,Michigan State University,16,23%,21%,77%,91%,14%
+54,Middle Tennessee State University,21,32%,7%,45%,81%,6%
+55,Mississippi State University,20,38%,14%,58%,83%,17%
+56,University of Maryland—College Park,18,35%,16%,81%,94%,10%
+57,University of Massachusetts—Amherst,19,45%,17%,69%,87%,11%
+58,University of Memphis,15,36%,11%,40%,76%,6%
+59,University of Miami,11,53%,7%,80%,90%,17%
+60,University of Michigan—Ann Arbor,15,48%,16%,90%,96%,15%
+61,University of Minnesota—Twin Cities,21,38%,19%,70%,89%,13%
+62,University of Missouri,20,47%,15%,69%,85%,16%
+63,New Mexico State University,20,45%,10%,45%,76%,6%
+64,North Carolina State University—Raleigh,18,30%,20%,71%,90%,11%
+65,Northern Illinois University,17,44%,12%,56%,75%,6%
+66,Northwestern University,7,75%,6%,94%,97%,30%
+67,United States Naval Academy,9,56%,0.10%,89%,97%,21%
+68,University of Nebraska—Lincoln,20,38%,14%,64%,84%,22%
+69,University of Nevada—Reno,27,33%,16%,50%,78%,9%
+70,University of New Mexico,22,40%,14%,44%,78%,7%
+71,University of North Carolina—Chapel Hill,14,37%,13%,90%,97%,22%
+72,University of North Texas,23,29%,20%,48%,76%,5%
+73,University of Notre Dame,12,55%,10%,96%,98%,41%
+74,Ohio State University—Columbus,19,32%,20%,78%,93%,15%
+75,Ohio University,19,42%,11%,65%,80%,8%
+76,Oklahoma State University,19,39%,12%,59%,79%,15%
+77,Oregon State University,25,36%,20%,60%,82%,12%
+78,University of Mississippi,18,46%,13%,59%,80%,13%
+79,University of Oklahoma,17,41%,11%,64%,83%,19%
+80,University of Oregon,20,37%,17%,68%,84%,13%
+81,Pennsylvania State University—University Park,17,39%,15%,85%,93%,21%
+82,Purdue University—West Lafayette,14,37%,17%,69%,87%,19%
+83,Rice University,6,69%,8%,92%,97%,32%
+84,"Rutgers, the State University of New Jersey—New Brunswick",15,41%,20%,77%,91%,10%
+85,San Diego State University,21,22%,24%,66%,83%,2%
+86,San Jose State University,25,25%,9%,44%,82%,2%
+87,Southern Methodist University,12,58%,8%,74%,89%,19%
+88,Stanford University,6,70%,13%,95%,98%,34%
+89,University of Pittsburgh,14,42%,18%,78%,92%,13%
+90,University of South Alabama,22,42%,8%,37%,68%,2%
+91,University of South Carolina,19,38%,11%,68%,87%,17%
+92,University of South Florida,28,23%,16%,51%,86%,15%
+93,University of Southern Mississippi,18,43%,11%,47%,74%,13%
+94,Syracuse University,16,61%,9%,82%,91%,17%
+95,Temple University,19,33%,8%,65%,87%,8%
+96,Texas A&M University—College Station,19,21%,23%,79%,92%,21%
+97,Texas Christian University,13,40%,8%,74%,86%,18%
+98,Texas State University—San Marcos,19,19%,19%,55%,78%,5%
+99,Texas Tech University,23,22%,24%,63%,82%,15%
+100,Troy University,20,58%,4%,40%,72%,9%
+101,Tulane University,11,67%,6%,74%,89%,19%
+102,University of Tennessee,15,31%,8%,60%,85%,11%
+103,University of Texas—Austin,18,34%,25%,81%,92%,14%
+104,University of Toledo,19,34%,31%,45%,68%,5%
+105,University of Alabama—Birmingham,17,39%,15%,41%,79%,13%
+106,University of California—Los Angeles,16,52%,22%,90%,97%,13%
+107,University of Central Florida,31,28%,23%,63%,86%,16%
+108,University of Nevada—Las Vegas,22,25%,18%,41%,76%,5%
+109,University of Southern California,9,63%,11%,89%,97%,39%
+110,University of Texas—San Antonio,23,24%,23%,26%,58%,5%
+111,University of Tulsa,11,70%,1%,65%,88%,22%
+112,University of Utah,15,42%,17%,57%,83%,11%
+113,Utah State University,19,32%,18%,56%,74%,8%
+114,University of Virginia,16,52%,16%,93%,97%,22%
+115,University of Washington,12,33%,21%,80%,93%,15%
+116,University of Wyoming,14,42%,10%,53%,73%,10%
+117,Vanderbilt University,8,64%,9%,91%,97%,23%
+118,Virginia Tech,17,25%,21%,80%,92%,15%
+119,Wake Forest University,11,54%,3%,89%,94%,29%
+120,Washington State University,15,37%,22%,69%,83%,13%
+121,West Virginia University,23,32%,19%,59%,80%,12%
+122,Western Kentucky University,19,43%,6%,49%,73%,13%
+123,Western Michigan University,19,36%,11%,52%,74%,10%

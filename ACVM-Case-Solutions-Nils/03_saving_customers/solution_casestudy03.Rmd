@@ -1,0 +1,200 @@
+---
+title: 'CaseStudy-03: Saving Customers'
+author: "Nils Gandlau"
+date: "14 11 2019"
+output:
+  pdf_document: default
+  html_document:
+    df_print: kable
+---
+
+```{r setup, include=FALSE, echo=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(data.table)
+library(tidyverse)
+library(readxl)
+library(survival)   # Survival models
+library(survminer)  # Survival plots
+library(kableExtra) # HTML Table Formatting
+
+dtOrig <- as.data.table(
+  read_xlsx(path = "saving_customers.xlsx")
+)
+
+dtOrig <- dtOrig %>% 
+  rename(saveID = "SaveID",
+         offer = "Offer",
+         saveMonth = "SaveMonth",
+         discoMonth = "DiscoMonth")
+
+dt <- copy(dtOrig)
+```
+
+## Data Preparation
+
+```{r}
+str(dt)
+```
+
+* Create a new variable `survivalTime` which we define as the difference `discoMonth - saveMonth`.
+* Create a new variable `eventOccured` that takes on the value 1 if the customer discontinued the service within the 9-month observation period or 0 if he didn't.
+
+```{r}
+dt[, saveID := NULL]
+dt[, survivalTime := discoMonth - saveMonth]
+dt[, eventOccurred := ifelse(is.na(discoMonth), 0, 1)]
+```
+
+Currently, for (right) censored observations we have `survivalTime == NA`. We will replace those `NA`s with the *total duration of the study*, which equals 9 month according to the case study handout.
+
+```{r}
+dt[is.na(survivalTime), survivalTime := 9]
+```
+
+Looking at the description of the data set, we notice that offer "O" is the only case where no external incentive (e.g. coupon) was given to the customer. Instead, offer "O" represents the scenario where the customer simply "changed his mind" about canceling and retained with the firm on her own. **Hence, for all future models, we will use offer "O" as our reference group**, such that we can compare the effects of exogenous incentives as opposed to no exogenous incentives on survival time.
+
+To make offer "O" the reference group, we will change the name such that our models pick it as reference group.
+
+```{r}
+dt[offer == "O", offer := "_O"]
+```
+
+
+## Cox Proportional Hazard Model
+
+```{r}
+cox <- coxph(Surv(survivalTime, eventOccurred) ~ offer, data = dt)
+summary(cox)
+```
+
+```{r}
+# Function for automated interpretation
+interpretCoxPH <- function(coefName, expCoefValue){
+  expCoefValue <- round(expCoefValue, 2)
+  interpretation <- paste0(
+    "At any time t, customers that received offer ",
+    str_sub(coefName, -1),
+    " have a risk that is  ",
+    expCoefValue,
+    " times as high as the reference offer O."
+  )
+}
+
+# Create table that summarizes the results nicely
+resultCox <- rbindlist(lapply(names(cox$coefficients), function(coefName){
+  coefValue <- cox$coefficients[[coefName]]
+  expCoefValue <- exp(coefValue)
+  interpretation <- interpretCoxPH(coefName, expCoefValue)
+  return(data.table(
+    coefficient = coefName,
+    value = coefValue, 
+    `exp(value)` = expCoefValue,
+    interpretation = interpretation
+  ))
+}))
+
+resultCox[, c("interpretation")]
+```
+
+<br>
+
+All coefficients are statistically significant.
+
+<br>
+
+In summary, these results indicate that customers who reveiced any of the offers except offer "F" are less likely to churn at any given period compared to those customers who did not receive an offer but simply changed their mind (refernce group offer "O").
+
+Offers "A" to "D" are very effective for improving longevity of the customer (relative to offer O).
+
+Offer "D" seems to be the best offer among all. Customers in this group have almost half the risk of churning compared to those that received no incentive (offer "O").
+
+
+## Accelerated failure time model (AFT)
+
+In this section we fit an AFT model assuming a Weibull distribution for the hazard function.
+
+```{r}
+aft <- survreg(Surv(survivalTime, eventOccurred) ~ offer,
+               data = dt,
+               dist="weibull")
+
+summary(aft)
+```
+
+
+```{r}
+# Create a nicely formatted table that summarizes the AFT model's result
+aftResult <- rbindlist(lapply(names(aft$coefficients), function(coefName){
+  coefValue <- aft$coefficients[[coefName]]
+  accelerationParameter <- round(exp(coefValue), 2)
+  
+  interpretation <- ""
+  if (startsWith(coefName, "offer")){
+    interpretation <- paste0(
+      "A customer that received Offer ", 
+      str_sub(coefName, -1), # extract last character of string
+      " lives ",
+      accelerationParameter,
+      " times as long as the reference group (offer O)."
+    )
+  }
+  
+  return(data.table(
+    ` coefficient ` = coefName,
+    ` value ` = round(coefValue, 4),
+    `__exp(value)` = accelerationParameter,
+    interpretation = interpretation
+  ))
+}))
+
+aftResult[, 1:3]
+```
+
+<br> 
+
+```{r}
+aftResult[, c("interpretation")]
+```
+
+<br>
+
+All coefficients are statistically significant.
+
+<br>
+
+The results are in line with those of the Cox Proportional Hazard Model.
+
+In summary, the AFT model shows that customers who received any of the offers except offer F live on average longer than a customer that decided to remain with the firm on his own (ie, reference group offer "O").
+
+Offers "A" to "D" are very effective improving longevity of the customer (relative to offer O).
+
+Offer "D" seems to be the best offer among all.
+
+## Kaplan-Meier
+
+Finally, we fit a non-parametric Kaplan-Meier model to the data. We then visualize the different survival functions.
+
+The results are in line with both the (1) Cox Proportional Hazard Model and (2) the AFT model.
+
+```{r}
+km <- survfit(Surv(survivalTime, eventOccurred) ~ offer,
+              data = dt,
+              type = "kaplan-meier")
+```
+
+
+```{r fig.height = 10, fig.width=12}
+ggsurvplot(km, 
+           ggtheme = theme_classic(),
+           size=2,
+           alpha = 0.8,
+           palette = c('#e6194b', '#3cb44b', '#ffe119', '#4363d8', '#f58231', '#911eb4', '#46f0f0', '#f032e6', '#bcf60c', '#fabebe', '#008080', '#e6beff', '#9a6324', '#fffac8', '#800000', '#aaffc3', '#808000', '#ffd8b1', '#000075', '#808080', '#ffffff', '#000000'))
+```
+
+<br>
+
+* Looking closely, one can observe that the survival functions of offers A, B, C, D are almost always above any other survival function. This reinforces the results that we have gotten from the other models, namely that offers A-D are affecting longevity of customers most positively.
+* The baseline survival function, resembling the survival function of customers who received offer D has the lowest survival rates at any given period except period 9.
+* In period 9, amongst others offers J and N have a less (or equal) survival probability than customers who received offer D
+
+The firm should use incentives, but ideally incentives of types A to D, since they affect longevity most positively.

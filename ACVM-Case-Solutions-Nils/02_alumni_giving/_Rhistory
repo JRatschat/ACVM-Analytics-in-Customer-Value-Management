@@ -1,0 +1,209 @@
+knitr::opts_chunk$set(echo = TRUE)
+library(data.table)
+library(tidyverse)
+dataOrig <- read_csv("C:/Users/nilsg/Google Drive/Studium/WS1920/analytics_customer_value_management/case_studies/02_alumni_giving/data_alumni_giving.csv")
+data <- as.data.table(dataOrig)
+str(data)
+data <- data %>%
+mutate(
+SFR = SFR / 100,
+LT20 = as.numeric(str_extract(LT20, "[0-9]*")) / 100,
+GT50 = as.numeric(str_extract(GT50, "[0-9]*")) / 100,
+GRAD = as.numeric(str_extract(GRAD, "[0-9]*")) / 100,
+FRR = as.numeric(str_extract(FRR, "[0-9]*")) / 100,
+GIVE = as.numeric(str_extract(GIVE, "[0-9]*")) / 100,
+) %>%
+setDT()
+str(data)
+nas <- rbindlist(lapply(names(data), function(colname) {
+nMissingValues <- sum(is.na(data[, get(colname)]))
+return(data.table(feature = colname, number_of_nas = nMissingValues))
+}))
+nas
+par(mfrow = c(4, 2))
+plot(GIVE ~ ., data %>% select(-ID, -School))
+numericFeatures <- c("GIVE", "SFR", "LT20", "GT50", "GRAD", "FRR")
+dataNumericFeatures <- data[, c(numericFeatures), with = F]
+corMatrix <- round(cor(dataNumericFeatures), 2)
+corMatrix
+linReg <- lm(GIVE ~ SFR + LT20 + GT50 + GRAD, data = data)
+summary(linReg)
+maxGIVE <- max(data$GIVE)
+minGIVE <- min(data$GIVE)
+rbindlist(list(
+data[GIVE == maxGIVE, c("School", "GIVE")],
+data[GIVE == minGIVE, c("School", "GIVE")]
+))
+str(corMatrix)
+knitr::opts_chunk$set(echo = TRUE)
+library(data.table)
+library(tidyverse)
+dataOrig <- read_csv("C:/Users/nilsg/Google Drive/Studium/WS1920/analytics_customer_value_management/case_studies/02_alumni_giving/data_alumni_giving.csv")
+data <- as.data.table(dataOrig)
+str(data)
+data <- data %>%
+mutate(
+SFR = SFR / 100,
+LT20 = as.numeric(str_extract(LT20, "[0-9]*")),
+GT50 = as.numeric(str_extract(GT50, "[0-9]*")),
+GRAD = as.numeric(str_extract(GRAD, "[0-9]*")),
+FRR = as.numeric(str_extract(FRR, "[0-9]*")),
+GIVE = as.numeric(str_extract(GIVE, "[0-9]*")),
+) %>%
+setDT()
+str(data)
+nas <- rbindlist(lapply(names(data), function(colname) {
+nMissingValues <- sum(is.na(data[, get(colname)]))
+return(data.table(feature = colname, number_of_nas = nMissingValues))
+}))
+nas
+par(mfrow = c(4, 2))
+plot(GIVE ~ ., data %>% select(-ID, -School))
+numericFeatures <- c("GIVE", "SFR", "LT20", "GT50", "GRAD", "FRR")
+dataNumericFeatures <- data[, c(numericFeatures), with = F]
+corMatrix <- round(cor(dataNumericFeatures), 2)
+corMatrix
+linReg <- lm(GIVE ~ SFR + LT20 + GT50 + GRAD, data = data)
+summary(linReg)
+maxGIVE <- max(data$GIVE)
+minGIVE <- min(data$GIVE)
+rbindlist(list(
+data[GIVE == maxGIVE, c("School", "GIVE")],
+data[GIVE == minGIVE, c("School", "GIVE")]
+))
+knitr::opts_chunk$set(echo = TRUE)
+library(data.table)
+library(tidyverse)
+dataOrig <- read_csv("C:/Users/nilsg/Google Drive/Studium/WS1920/analytics_customer_value_management/case_studies/02_alumni_giving/data_alumni_giving.csv")
+data <- as.data.table(dataOrig)
+str(data)
+data <- data %>%
+mutate(
+SFR = SFR,
+LT20 = as.numeric(str_extract(LT20, "[0-9]*")),
+GT50 = as.numeric(str_extract(GT50, "[0-9]*")),
+GRAD = as.numeric(str_extract(GRAD, "[0-9]*")),
+FRR = as.numeric(str_extract(FRR, "[0-9]*")),
+GIVE = as.numeric(str_extract(GIVE, "[0-9]*")),
+) %>%
+setDT()
+str(data)
+nas <- rbindlist(lapply(names(data), function(colname) {
+nMissingValues <- sum(is.na(data[, get(colname)]))
+return(data.table(feature = colname, number_of_nas = nMissingValues))
+}))
+nas
+par(mfrow = c(4, 2))
+plot(GIVE ~ ., data %>% select(-ID, -School))
+numericFeatures <- c("GIVE", "SFR", "LT20", "GT50", "GRAD", "FRR")
+dataNumericFeatures <- data[, c(numericFeatures), with = F]
+corMatrix <- round(cor(dataNumericFeatures), 2)
+corMatrix
+linReg <- lm(GIVE ~ SFR + LT20 + GT50 + GRAD, data = data)
+summary(linReg)
+maxGIVE <- max(data$GIVE)
+minGIVE <- min(data$GIVE)
+rbindlist(list(
+data[GIVE == maxGIVE, c("School", "GIVE")],
+data[GIVE == minGIVE, c("School", "GIVE")]
+))
+linReg <- lm(GIVE ~ SFR + LT20 + GT50 + GRAD, data = data)
+summary(linReg)
+View(data)
+linReg <- lm(GIVE ~ SFR + LT20 + GT50 + GRAD, data = data)
+summary(linReg)
+linReg <- lm(GIVE ~ SFR + LT20 + GT50 + GRAD, data = data)
+summary(linReg)
+knitr::opts_chunk$set(echo = TRUE)
+library(data.table)
+library(tidyverse)
+dataOrig <- read_csv("C:/Users/nilsg/Google Drive/Studium/WS1920/analytics_customer_value_management/case_studies/02_alumni_giving/data_alumni_giving.csv")
+data <- as.data.table(dataOrig)
+str(data)
+data <- data %>%
+mutate(
+SFR = SFR / 100,
+LT20 = as.numeric(str_extract(LT20, "[0-9]*")) / 100,
+GT50 = as.numeric(str_extract(GT50, "[0-9]*")) / 100,
+GRAD = as.numeric(str_extract(GRAD, "[0-9]*")) / 100,
+FRR = as.numeric(str_extract(FRR, "[0-9]*")) / 100,
+GIVE = as.numeric(str_extract(GIVE, "[0-9]*")) / 100,
+) %>%
+setDT()
+str(data)
+nas <- rbindlist(lapply(names(data), function(colname) {
+nMissingValues <- sum(is.na(data[, get(colname)]))
+return(data.table(feature = colname, number_of_nas = nMissingValues))
+}))
+nas
+par(mfrow = c(4, 2))
+plot(GIVE ~ ., data %>% select(-ID, -School))
+numericFeatures <- c("GIVE", "SFR", "LT20", "GT50", "GRAD", "FRR")
+dataNumericFeatures <- data[, c(numericFeatures), with = F]
+corMatrix <- round(cor(dataNumericFeatures), 2)
+corMatrix
+linReg <- lm(GIVE ~ SFR + LT20 + GT50 + GRAD, data = data)
+summary(linReg)
+maxGIVE <- max(data$GIVE)
+minGIVE <- min(data$GIVE)
+rbindlist(list(
+data[GIVE == maxGIVE, c("School", "GIVE")],
+data[GIVE == minGIVE, c("School", "GIVE")]
+))
+rbindlist(list(
+# data[GIVE == maxGIVE, c("School", "GIVE")],
+data[GIVE == maxGIVE, ],
+data[GIVE == minGIVE, ]
+# data[GIVE == minGIVE, c("School", "GIVE")]
+))
+rbindlist(list(
+data[GIVE == maxGIVE,)],
+rbindlist(list(
+data[GIVE == maxGIVE, c("School", "GIVE")],
+data[GIVE == minGIVE, c("School", "GIVE")]
+))
+maxGIVE <- max(data$GIVE)
+minGIVE <- min(data$GIVE)
+rbindlist(list(
+data[GIVE == maxGIVE, c("School", "GIVE")],
+data[GIVE == minGIVE, c("School", "GIVE")]
+))
+knitr::opts_chunk$set(echo = TRUE)
+library(data.table)
+library(tidyverse)
+dataOrig <- read_csv("C:/Users/nilsg/Google Drive/Studium/WS1920/analytics_customer_value_management/case_studies/02_alumni_giving/data_alumni_giving.csv")
+data <- as.data.table(dataOrig)
+str(data)
+data <- data %>%
+mutate(
+SFR = SFR,
+LT20 = as.numeric(str_extract(LT20, "[0-9]*")) / 100,
+GT50 = as.numeric(str_extract(GT50, "[0-9]*")) / 100,
+GRAD = as.numeric(str_extract(GRAD, "[0-9]*")) / 100,
+FRR = as.numeric(str_extract(FRR, "[0-9]*")) / 100,
+GIVE = as.numeric(str_extract(GIVE, "[0-9]*")) / 100,
+) %>%
+setDT()
+str(data)
+nas <- rbindlist(lapply(names(data), function(colname) {
+nMissingValues <- sum(is.na(data[, get(colname)]))
+return(data.table(feature = colname, number_of_nas = nMissingValues))
+}))
+nas
+par(mfrow = c(4, 2))
+plot(GIVE ~ ., data %>% select(-ID, -School))
+numericFeatures <- c("GIVE", "SFR", "LT20", "GT50", "GRAD", "FRR")
+dataNumericFeatures <- data[, c(numericFeatures), with = F]
+corMatrix <- round(cor(dataNumericFeatures), 2)
+corMatrix
+linReg <- lm(GIVE ~ SFR + LT20 + GT50 + GRAD, data = data)
+summary(linReg)
+maxGIVE <- max(data$GIVE)
+minGIVE <- min(data$GIVE)
+rbindlist(list(
+data[GIVE == maxGIVE, c("School", "GIVE")],
+data[GIVE == minGIVE, c("School", "GIVE")]
+))
+linReg <- lm(GIVE ~ SFR + LT20 + GT50 + GRAD + FRR, data = data)
+summary(linReg)
+-0.1951 - 0.0011*17 + 0.1509*0.34 -0.0315*0.23 + 0.1297*0.67 + 0.2570*0.77

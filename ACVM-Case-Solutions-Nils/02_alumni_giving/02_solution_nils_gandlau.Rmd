@@ -1,0 +1,168 @@
+---
+title: "02 - Alumni Giving"
+author: "Nils Gandlau"
+date: "23 10 2019"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(data.table)
+library(tidyverse)
+
+dataOrig <- read_csv("C:/Users/nilsg/Google Drive/Studium/WS1920/analytics_customer_value_management/case_studies/02_alumni_giving/data_alumni_giving.csv")
+data <- as.data.table(dataOrig)
+```
+
+
+## Data Preparation
+
+```{r}
+str(data)
+```
+
+### Data Types
+Percentages are saved as characters. Reformat those to make them numeric.
+
+```{r}
+data <- data %>% 
+  mutate(
+    SFR = SFR,
+    LT20 = as.numeric(str_extract(LT20, "[0-9]*")) / 100,
+    GT50 = as.numeric(str_extract(GT50, "[0-9]*")) / 100,
+    GRAD = as.numeric(str_extract(GRAD, "[0-9]*")) / 100,
+    FRR = as.numeric(str_extract(FRR, "[0-9]*")) / 100,
+    GIVE = as.numeric(str_extract(GIVE, "[0-9]*")) / 100,
+  ) %>% 
+  setDT()
+
+str(data)
+```
+
+### Missing Values
+
+There are no missing values.
+
+```{r}
+nas <- rbindlist(lapply(names(data), function(colname) {
+  nMissingValues <- sum(is.na(data[, get(colname)]))
+  return(data.table(feature = colname, number_of_nas = nMissingValues))
+}))
+
+nas
+```
+
+
+## Data Exploration
+
+```{r fig.height=12, fig.width=10}
+par(mfrow = c(4, 2))
+plot(GIVE ~ ., data %>% select(-ID, -School))
+```
+
+One may identify the following trends:
+
+* The larger the student-to-faculty ratio, the lower the giving rate
+* The larger the share of classes with fewer than 20 students, the larger the giving rate
+* The larger the share of classes with more than 20 students, the slightly lower the giving rate
+* The larger the average six-year graduation rate, the larger the giving rate
+* The more freshmen stay, the larger the giving rate
+
+### Correlations of (numeric) features
+
+```{r}
+numericFeatures <- c("GIVE", "SFR", "LT20", "GT50", "GRAD", "FRR")
+dataNumericFeatures <- data[, c(numericFeatures), with = F]
+
+corMatrix <- round(cor(dataNumericFeatures), 2)
+corMatrix
+```
+
+* `GRAD` and `FRR` have high (positive) correlation $0.93$. We may want to avoid using both in our models.
+* `SFR` and `LT20` have medium-high (negative) correlation $-0.69$. We also note that the two variables have, when increased, an *opposing effect* on the target variable. Hence, when both were used in a regression model, their regression coefficients may be biased/untrustworthy due to multicolinearity.
+
+## Regression
+
+We deploy a standard linear regression, but exclude `FRR` since it is highly correlated with `GRAD`.
+
+```{r}
+linReg1 <- lm(GIVE ~ SFR + LT20 + GT50 + GRAD, data = data)
+summary(linReg1)
+```
+
+We check whether including `FRR` over `GRAD` is better:
+
+```{r}
+linReg2 <- lm(GIVE ~ SFR + LT20 + GT50 + FRR, data = data)
+summary(linReg2)
+```
+
+* We note that in the second regression, the $R^2$ is slightly lower, hence we will use the first one, where we included `GRAD` and not `FRR`
+
+### Question 1
+
+If School A's graduation rate `GRAD` is 10 (percentage) points higher (note that 10 percentage points equals 0.1 in our case, since we converted the percentages to be numbers in $[0, 1]$) than School B's, then School A can expect to have an *alumni giving rate* that is $0.257573 * 0.1 * 100 \approx 2.6$ percentage points higher than School B's.
+
+The calculation is based on the following idea:
+
+$$
+\begin{aligned}
+\Delta GIVE & =(w_0 +w_1 GRAD_2 + \dots) - (w_0 + w_1 GRAD_1 + \dots) \\
+& = w_1 \cdot (GRAD_2 - GRAD_1) \\
+& = w_1 \cdot 0.1
+\end{aligned}
+$$
+
+### Question 2
+
+The answer doesn't change compared to Question 1. 
+
+Since we have assumed for each predictor a linear relationship with the target variable, the benefit of a marginal increase in `GRAD` is not dependent on the (absolute) level of any of the predictors. 
+
+That is, regardless of the value of student-to-faculty ratio, our model says that increasing the graduation rate by 10 percentage points (or 0.1 in our case), always increases the expected giving rate by 2.6 percentage points.
+
+### Question 3
+
+```{r}
+maxGIVE <- max(data$GIVE)
+minGIVE <- min(data$GIVE)
+
+rbindlist(list(
+  data[GIVE == maxGIVE, c("School", "GIVE")],
+  data[GIVE == minGIVE, c("School", "GIVE")]
+))
+```
+
+* University of Notre Dame has the most impressive giving rate (41%)
+* Three universities share the last place: San Diego State University, San Jose State University, University of South Alabama. Each with a giving rate of 2%.
+
+### Question 4
+
+School's feature vector:
+
+* `GRAD = 0.67`
+* `SFR = 17`
+* `LT20 = 0.34`
+* `GT50 = 0.23`
+* `FRR = 0.77`
+
+Note that in our regressions before, we haven't included both `GRAD` and `FRR` at the same time, since they were highly correlated. Hence, we have to run a new regression:
+
+```{r}
+linReg <- lm(GIVE ~ SFR + LT20 + GT50 + GRAD + FRR, data = data)
+summary(linReg)
+```
+
+
+Given the school's feature vector, we can compute the expected giving rate that is predicted by our model:
+
+$$
+\begin{aligned}
+GRAD & = w_0 + w_1 \cdot SFR+w_2 \cdot LT20 + w_3\cdot GT50 + w_4 \cdot GRAD + w_5 \cdot FRR \\
+& \approx -0.1951-0.0011\cdot 17 + 0.1509\cdot 0.34 -0.0315 \cdot 0.23 + 0.1297 \cdot 0.67 + 0.2570 \cdot 0.77 \\
+& = 0.11505
+\end{aligned}
+$$
+So our model predicts a graduation rate of 11.505 %, which is greater than 8%.
