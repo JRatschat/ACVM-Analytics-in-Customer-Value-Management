@@ -97,4 +97,4 @@ BrandKeyword and Week:BrandKeyword1 coefficients are not significant. Zero hypot
 
 # Conclusion
 
-All regression results confirm the very small and statistically insignificant effect of paid search ads.
+All regression results confirm the very small and statistically insignificant effect of paid search ads. Therefore, we recommend to stop spending money for brand keyword ads.
