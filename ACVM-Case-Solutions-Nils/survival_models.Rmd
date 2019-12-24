@@ -1,0 +1,99 @@
+---
+title: "Survival Models"
+output: 
+  html_notebook: 
+    code_folding: hide
+    theme: paper
+    toc: yes
+---
+
+## Survival Models 
+
+```{r echo=FALSE, message=FALSE}
+library(data.table)
+library(tidyverse)
+```
+
+### Exponential Distribution
+
+```{r}
+hs <- c(0.1, 0.2, 0.5)
+ts <- 1:100
+
+dt <- rbindlist(lapply(hs, function(h){
+  return(data.table(
+    label = paste0("h = ", h),
+    t = ts,
+    density = dexp(ts, h)
+  ))
+}))
+
+ggplot(dt, aes(x = t, y = density, color = label)) +
+  geom_line() +
+  theme_minimal()
+```
+
+
+### Density $f(t)$ for constant hazard rate $h(t)=t$
+
+
+```{r}
+S_t <- function(t) return(exp(-0.5*t^2))
+
+f_t <- function(t){
+  return(0.5 * t * exp(-0.5 * (t^2)))
+}
+
+h_t <- function(t) return(t)
+
+ts <- seq(0, 4, 0.01)
+
+dt <- data.table(
+  t = ts,
+  density = f_t(ts),
+  label = "f(t)"
+)
+
+dt <- rbind(dt, data.table(t = ts, density = S_t(ts), label = "S(t)"))
+dt <- rbind(dt, data.table(t = ts, density = h_t(ts), label = "h(t)"))
+
+ggplot(dt, aes(x = t, y = density, color = label)) +
+  geom_line() +
+  ylim(c(0,2)) +
+  ggtitle("Hazard, Survival, density function for constant h(t)=h") +
+  theme_minimal()
+```
+
+e
+### Weibull Hazard function
+
+
+
+```{r}
+h_t_weibull <- function(t, p){
+  return(p * (t^(p-1)))
+}
+
+ts <- seq(0, 2, 0.01)
+
+params <- c(0.5, 1, 1.5, 2)
+
+dt <- rbindlist(lapply(params, function(p){
+  
+  return(data.table(
+    t = ts,
+    y = h_t_weibull(ts, p),
+    weibull_parameter = paste0("p=",p)
+  ))}
+))
+
+
+ggplot(dt, aes(x = t, y = y, color=weibull_parameter)) + 
+  geom_line() + 
+  theme_minimal() +
+  ylim(c(0,2)) +
+  ggtitle("Weibull hazard functions for different p")
+
+```
+
+
