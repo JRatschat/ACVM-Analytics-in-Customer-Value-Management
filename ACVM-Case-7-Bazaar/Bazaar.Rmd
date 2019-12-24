@@ -1,0 +1,100 @@
+---
+title: "Case 7 Bazaar.com"
+author: "Jonathan Ratschat"
+date: "22 12 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+#Libraries
+library(readxl)
+library(ggplot2)
+library(reshape2)
+library(dplyr)
+```
+
+
+
+```{r}
+#Import data
+Data <- read_excel("Bazaar data.xlsx")
+head(Data)
+
+#Transform variables
+str(Data)
+Data$Origin <- as.factor(Data$Origin)
+
+#Create column with total clicks
+Data$Total <- Data$Sponsored + Data$Organic
+
+#Create column with indicator if brand keyword ad was used
+Data$BrandKeyword <- ifelse(Data$Sponsored > 0, 1, 0)
+Data$BrandKeyword <- as.factor(Data$BrandKeyword)
+
+#Google Subset
+dataGoogle <- subset(Data, Data$Origin == "Google")
+```
+
+# Exploratory analysis
+
+```{r}
+#Total clicks by Week and Origin
+ggplot(Data, aes(x = Week, y = Total, fill = Origin)) +
+         geom_bar(position = "dodge", stat = "identity") + 
+         ggtitle("Total clicks by Week and Origin", subtitle = "No huge impact on total clicks when brand keyword ads are turned off") +
+  labs(caption = "Ads were only used in the first nine weeks on Google (whole timespan on Bing).") +
+xlab("Week") + 
+  ylab("Total") + 
+  theme(plot.title = element_text(color = "blue", face = "bold")) +
+  scale_colour_manual(name="Origin") +
+  scale_x_continuous(breaks = c(0, 2, 4, 6, 8, 10, 12), labels = c("0", "2", "4", "6", "8", "10", "12")) +
+  expand_limits(x = 0, y = 0)
+
+```
+
+```{r}
+#Google clicks by week
+dataGoogleLong <- melt(dataGoogle %>% 
+                         select(-BrandKeyword, -Total), 
+                       id = c("Week", "Origin"))
+
+ggplot(dataGoogleLong, aes(x = Week, y = value, fill = variable)) +
+         geom_bar(position = "stack", stat = "identity") + 
+         ggtitle("Google clicks by Week", subtitle = "When sponsored ads are turned off, many clicks are substituted by organic clicks") +
+xlab("Week") + 
+  ylab("Number of clicks") + 
+  theme(plot.title = element_text(color = "blue", face = "bold")) +
+  guides(fill=guide_legend(title="Type")) +
+  scale_x_continuous(breaks = c(0, 2, 4, 6, 8, 10, 12), labels = c("0", "2", "4", "6", "8", "10", "12")) +
+  expand_limits(x = 0, y = 0)
+```
+
+# Regression analysis
+
+Perform regression analysis to find out if BrandKeyword has a significant effect on log(Total). The log is chosen to make the results of Bing and Google more comparable.
+
+```{r}
+#Regression on Google Subset using BrandKeyword as independent variable
+mod1 <- lm(log(Total) ~ BrandKeyword + Week, data = dataGoogle)
+summary(mod1)
+```
+
+BranKeyword has only a small effect on log(Total) at a low significance 10% level.
+
+# Difference-in-difference analysis
+
+```{r}
+#Regression on Data using interaction effect between week and BrandKeyword as independent variable
+mod2 <- lm(log(Total) ~ Week*BrandKeyword + Origin, data = Data)
+summary(mod2)
+```
+
+BrandKeyword and Week:BrandKeyword1 coefficients are not significant. Zero hypothesis that coefficients have no effect on dependent variable cannot be rejected.
+
+# Conclusion
+
+All regression results confirm the very small and statistically insignificant effect of paid search ads.
