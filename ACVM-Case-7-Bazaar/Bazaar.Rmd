@@ -15,6 +15,7 @@ library(readxl)
 library(ggplot2)
 library(reshape2)
 library(dplyr)
+library(skimr)
 ```
 
 
@@ -23,6 +24,9 @@ library(dplyr)
 #Import data
 Data <- read_excel("Bazaar data.xlsx")
 head(Data)
+
+#Explore data set
+skim(Data, Sponsored, Organic)
 
 #Transform variables
 str(Data)
