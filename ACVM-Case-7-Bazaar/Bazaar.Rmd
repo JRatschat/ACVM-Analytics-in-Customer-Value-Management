@@ -35,12 +35,9 @@ Data$Origin <- as.factor(Data$Origin)
 #Create column with total clicks
 Data$Total <- Data$Sponsored + Data$Organic
 
-#Create column with indicator if brand keyword ad was used
-Data$BrandKeyword <- ifelse(Data$Sponsored > 0, 1, 0)
-Data$BrandKeyword <- as.factor(Data$BrandKeyword)
-
-#Google Subset
-dataGoogle <- subset(Data, Data$Origin == "Google")
+#Create time indicator (before treatment = 0, after treatment = 1)
+Data$Time <- ifelse(Data$Week < 10, 0, 1)
+Data$Time <- as.factor(Data$Time)
 ```
 
 # Exploratory analysis
@@ -61,9 +58,12 @@ xlab("Week") +
 ```
 
 ```{r}
+#Google Subset
+dataGoogle <- subset(Data, Data$Origin == "Google")
+
 #Google clicks by week
 dataGoogleLong <- melt(dataGoogle %>% 
-                         select(-BrandKeyword, -Total), 
+                         select(-Total, -Time), 
                        id = c("Week", "Origin"))
 
 ggplot(dataGoogleLong, aes(x = Week, y = value, fill = variable)) +
@@ -77,28 +77,21 @@ xlab("Week") +
   expand_limits(x = 0, y = 0)
 ```
 
-# Regression analysis
-
-Perform regression analysis to find out if BrandKeyword has a significant effect on log(Total). The log is chosen to make the results of Bing and Google more comparable.
-
-```{r}
-#Regression on Google Subset using BrandKeyword as independent variable
-mod1 <- lm(log(Total) ~ BrandKeyword + Week, data = dataGoogle)
-summary(mod1)
-```
-
-BranKeyword has only a small effect on log(Total) at a low significance 10% level.
-
 # Difference-in-difference analysis
+
+Perform difference-in-difference analysis to find out if brandkeywords have a significant effect on log(Total). The log is chosen to make the results of Bing and Google more comparable.
+
+Time: before and after treatment (treatment: turn brandkeywords off)
+Origin: treatment group and control group (treatment = Google, control = Bing)
 
 ```{r}
 #Regression on Data using interaction effect between week and BrandKeyword as independent variable
-mod2 <- lm(log(Total) ~ Week*BrandKeyword + Origin, data = Data)
-summary(mod2)
+mod1 <- lm(log(Total) ~ Time*Origin, data = Data)
+summary(mod1)
 ```
 
-BrandKeyword and Week:BrandKeyword1 coefficients are not significant. Zero hypothesis that coefficients have no effect on dependent variable cannot be rejected.
+Time1:OriginGoogle coefficient is not significant. Zero hypothesis that the usage of brandkeywords has no effect on dependent variable cannot be rejected.
 
 # Conclusion
 
-All regression results confirm the very small and statistically insignificant effect of paid search ads. Therefore, we recommend to stop spending money for brand keyword ads.
+Regression results confirm the statistically insignificant effect of paid search ads. Therefore, we recommend to stop spending money for brand keyword ads.
