@@ -1,13 +1,17 @@
 ---
 title: "Case 7 Bazaar.com"
-author: "Jonathan Ratschat"
+author: "Jonathan Ratschat / Franziska Bülck"
 date: "22 12 2019"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 ```
+
+# Libraries
 
 ```{r}
 #Libraries
@@ -15,18 +19,14 @@ library(readxl)
 library(ggplot2)
 library(reshape2)
 library(dplyr)
-library(skimr)
 ```
 
-
+# Prepare data
 
 ```{r}
 #Import data
 Data <- read_excel("Bazaar data.xlsx")
 head(Data)
-
-#Explore data set
-skim(Data, Sponsored, Organic)
 
 #Transform variables
 str(Data)
@@ -38,6 +38,10 @@ Data$Total <- Data$Sponsored + Data$Organic
 #Create time indicator (before treatment = 0, after treatment = 1)
 Data$Time <- ifelse(Data$Week < 10, 0, 1)
 Data$Time <- as.factor(Data$Time)
+
+#Data set used for analysis
+head(Data)
+str(Data)
 ```
 
 # Exploratory analysis
@@ -46,14 +50,13 @@ Data$Time <- as.factor(Data$Time)
 #Total clicks by Week and Origin
 ggplot(Data, aes(x = Week, y = Total, fill = Origin)) +
          geom_bar(position = "dodge", stat = "identity") + 
-         ggtitle("Total clicks by Week and Origin", subtitle = "No huge impact on total clicks when brand keyword ads are turned off") +
+         ggtitle("Total clicks by Week and Origin", subtitle = "Number of total clicks shows a decreasing trend") +
   labs(caption = "Ads were only used in the first nine weeks on Google (whole timespan on Bing).") +
 xlab("Week") + 
   ylab("Total") + 
   theme(plot.title = element_text(color = "blue", face = "bold")) +
   scale_colour_manual(name="Origin") +
-  scale_x_continuous(breaks = c(0, 2, 4, 6, 8, 10, 12), labels = c("0", "2", "4", "6", "8", "10", "12")) +
-  expand_limits(x = 0, y = 0)
+  scale_x_continuous(breaks = c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12), labels = c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"))
 
 ```
 
@@ -71,21 +74,21 @@ ggplot(dataGoogleLong, aes(x = Week, y = value, fill = variable)) +
          ggtitle("Google clicks by Week", subtitle = "When sponsored ads are turned off, many clicks are substituted by organic clicks") +
 xlab("Week") + 
   ylab("Number of clicks") + 
+   labs(caption = "Ads were only used in the first nine weeks on Google.") +
   theme(plot.title = element_text(color = "blue", face = "bold")) +
   guides(fill=guide_legend(title="Type")) +
-  scale_x_continuous(breaks = c(0, 2, 4, 6, 8, 10, 12), labels = c("0", "2", "4", "6", "8", "10", "12")) +
-  expand_limits(x = 0, y = 0)
+  scale_x_continuous(breaks = c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12), labels = c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"))
 ```
 
 # Difference-in-difference analysis
 
-Perform difference-in-difference analysis to find out if brandkeywords have a significant effect on log(Total). The log is chosen to make the results of Bing and Google more comparable.
+We perform difference-in-difference analysis to find out if using paid search ads (brandkeywords) has a significant effect on log(Total). The log is chosen to make the results of Bing and Google more comparable.
 
+Two independent variables:
 Time: before and after treatment (treatment: turn brandkeywords off)
 Origin: treatment group and control group (treatment = Google, control = Bing)
 
 ```{r}
-#Regression on Data using interaction effect between week and BrandKeyword as independent variable
 mod1 <- lm(log(Total) ~ Time*Origin, data = Data)
 summary(mod1)
 ```
@@ -94,4 +97,4 @@ Time1:OriginGoogle coefficient is not significant. Zero hypothesis that the usag
 
 # Conclusion
 
-Regression results confirm the statistically insignificant effect of paid search ads. Therefore, we recommend to stop spending money for brand keyword ads.
+The conducted difference-in-difference analysis confirms the statistically insignificant effect of paid search ads. Therefore, we recommend to stop spending money for brand keyword ads.
