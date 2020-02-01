@@ -1,0 +1,79 @@
+---
+title: 'Survival Analysis: Happy Sound'
+author: "Jonathan Ratschat"
+date: "1 2 2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Survival Analysis: HappySound
+
+## Libraries
+
+```{r}
+library(survival)
+library(survminer)
+library(ggplot2)
+library(readr)
+library(ggpubr)
+library(magrittr)
+```
+
+## Load data set
+
+```{r}
+Data <- read_csv("happy_sound.csv")
+```
+
+## Look at data
+
+```{r}
+str(Data)
+summary(Data)
+```
+
+## Transform variables
+
+```{r}
+Data$fustat <- as.integer(Data$fustat)
+```
+
+## Prepare hazard model (survival object)
+
+```{r}
+surv_object <- Surv(time = Data$futime, Data$fustat)
+```
+
+## Kaplan-Meyer curve
+
+```{r}
+surv_model1 <- survfit(surv_object ~ won_back, data = Data)
+
+summary(surv_model1)
+
+ggsurvplot(surv_model1, data = Data, pval = TRUE)
+```
+
+```{r}
+surv_model2 <- survfit(surv_object ~ upgrade, data = Data)
+
+summary(surv_model2)
+
+ggsurvplot(surv_model2, data = Data, pval = TRUE)
+```
+
+## Cox proportional hazard model
+
+```{r}
+cox_model1 <- coxph(surv_object ~ upgrade + age + gender + won_back, data = Data)
+summary(cox_model1)
+
+ggforest(cox_model1, data = Data)
+```
+
+
+
+

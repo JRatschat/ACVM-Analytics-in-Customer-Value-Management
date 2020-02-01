@@ -1,0 +1,100 @@
+---
+title: 'Logistic Regression: Pilgrim Bank'
+author: "Jonathan Ratschat"
+date: "1 2 2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Logistic Regression: Pilgrim Bank
+
+## Libraries
+
+```{r}
+library(readr)
+library(dplyr)
+library(stargazer)
+library(gmodels)
+```
+
+## Load data
+
+```{r}
+Data <- read_csv("pilgrim_bank_b.csv")
+```
+
+## Look at data
+
+```{r}
+summary(Data)
+str(Data)
+```
+
+## Transform data
+
+```{r}
+#Change column names
+colnames(Data) <- c("Online", "District", "Age", "Income", "Tenure", "Profit1999", "Profit2000")
+
+#Change type of variables
+Data$Online <- as.factor(Data$Online)
+Data$District <- as.factor(Data$District)
+Data$Age <- as.factor(Data$Age)
+Data$Income <- as.factor(Data$Income)
+
+#Create new variable
+Data$Churn[is.na(Data$Profit2000)] <- 1
+Data$Churn[is.na(Data$Churn)] <- 0
+Data$Churn <- as.factor(Data$Churn)
+
+#Handle missing values
+summary(Data$Age)
+Data$AgeMissing[is.na(Data$Age)] <- 1
+Data$AgeMissing[is.na(Data$AgeMissing)] <- 0
+
+Data$Age <- as.integer(Data$Age)
+Data$Age[is.na(Data$Age)] <- 0
+Data$Age <- as.factor(Data$Age)
+
+summary(Data$Income)
+Data$IncomeMissing[is.na(Data$Income)] <- 1
+Data$IncomeMissing[is.na(Data$IncomeMissing)] <- 0
+
+Data$Income <- as.integer(Data$Income)
+Data$Income[is.na(Data$Income)] <- 0
+Data$Income <- as.factor(Data$Income)
+
+Data$Missing <- ifelse(Data$AgeMissing + Data$IncomeMissing > 0, 1, 0)
+```
+
+## Develop a model to predict the likelihood to churn for each customer. Briefly explain your motivation behind the use of your model.
+
+```{r}
+Data <- select(Data, -Profit2000, -AgeMissing, -IncomeMissing, -Missing)
+
+mod1 <- glm(Churn ~ ., data = Data, family = binomial(link="logit"))
+
+summary(mod1)
+```
+
+stargazer(mod1, type="html", out="star_linear.doc")
+
+Open question: Why do we not include the variable that marks the missingness?
+
+## Use your model to predict the likelihood to churn for one customer and use “manual calculations” (e.g., via calculations done in excel or your pocket calculator) to outline that the model indeed predicted the correct value.
+
+```{r}
+#Predict churn
+Data$Predicted <- predict.glm(mod1, data = Data, type= "response")
+
+Data$PredictedChurn <- ifelse(Data$Predicted > 0.5, 1, 0)
+
+CrossTable(Data$Churn, Data$PredictedChurn)
+```
+
+```{r}
+#Accuracy = (TP + TN) / (TP + TN + FP + FN)
+(26157 + 334) / (26157 + 334 + 4904 + 239)

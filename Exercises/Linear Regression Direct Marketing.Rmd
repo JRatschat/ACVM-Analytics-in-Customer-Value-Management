@@ -1,0 +1,75 @@
+---
+title: 'Linear Regression: Direct Marketing'
+author: "Jonathan Ratschat"
+date: "1 2 2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Linear Regression: Direct Marketing
+
+## Libraries
+
+```{r}
+library(readr)
+```
+
+## Load data
+
+```{r}
+Data <- read_csv("direct_marketing.csv")
+```
+
+## Look at data
+
+```{r}
+summary(Data)
+str(Data)
+```
+
+## Transform variables
+
+```{r}
+Data$Age <- as.factor(Data$Age)
+Data$Gender <- as.factor(Data$Gender)
+Data$OwnHome <- as.factor(Data$OwnHome)
+Data$Married <- as.factor(Data$Married)
+Data$Location <- as.factor(Data$Location)
+Data$History <- as.factor(Data$History)
+Data$Children <- as.factor(Data$Children)
+```
+
+## What are the characteristics of the most attractive customer?
+
+```{r}
+mod1 <- lm(AmountSpent ~ Age + Gender + OwnHome + Married + Location + Salary + Children + Catalogs, data = Data)
+summary(mod1)
+
+mod2 <- lm(AmountSpent ~ Age + Gender + OwnHome + Married + Location + Salary + Children + Catalogs + History, data = Data)
+summary(mod2)
+```
+
+Young age, LocationFar, High Salary, No children, No. of catalogs sent
+
+## What is the expected amount of dollars spent of a customer with the following characteristics: young, female, home owner, single, far away living, $30.500 salary, 12 catalogs sent
+
+```{r}
+-6.586e+02 + 9.123e+01 + 5.061e+02 + 30500 * 2.213e-02 + 12 * 4.334e+01
+```
+
+## Would you rather target married or single customers?
+
+It does not matter, since this variable is not significant. Therefore, zero-hypothesis that this variable has no effect on dollar amount cannot be rejected.
+
+## Which customers spent more money than you expected?
+
+```{r}
+Data$Predicted <- predict(mod1, data = Data)
+
+Data$difference <- Data$AmountSpent - Data$Predicted
+```
+
+Customers with values with positive difference spend more money than expected, while customer with negative values spend less money than expected.
