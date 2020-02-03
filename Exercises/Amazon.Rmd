@@ -1,0 +1,82 @@
+---
+title: "Amazon"
+author: "Jonathan Ratschat"
+date: "2 2 2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Amazon
+
+## Libraries
+
+```{r}
+library(readr)
+library(dplyr)
+```
+
+## Data set
+
+```{r}
+Data <- read_csv("amazon_data.csv")
+View(Data)
+str(Data)
+summary(Data)
+```
+
+## Transform variables
+
+```{r}
+Data$after <- as.factor(Data$after)
+```
+
+## Use the dataset to perform a before-and-after analysis to examine the impact of introducing Amazon Prime on revenue of Amazon in the US. Interpret the model (i.e. all parameters, and indicate if they make sense in terms of direction and (in)significance and what each parameter means) and explain the reasons for the choices that you have made in terms of the independent variable(s) and transformation of variables.
+
+Independent: log(Revenue_US) -> Log can be used for small percentage changes
+Dependent: after (before-and-after analysis), log(Revenue_Canada) (since the US and the Canada market are comparable, we use the development of the revenues of the Canadian market to capture the trend of the market
+
+```{r}
+mod1 <- lm(log(Revenue_US) ~ after + log(Revenue_Canada), data = Data)
+summary(mod1)
+```
+
+The result of this analysis is that Amazon has no significant effect on log(Revenue_US).
+
+There seems to be a positive trend, as shown by log(Revenue_Canada). It has a significant result.
+
+## Perform on the dataset a difference-in-differences analysis to find out what the impact of introducing Amazon Prime is for the revenue of Amazon in the US; also interpret the model (i.e. all parameters, and indicate if they make sense in terms of direction and (in)significance and what each parameter means). Tip: to perform a difference-indifferences analysis on the dataset, you do need to restructure the dataset.
+
+```{r}
+#Build feasible data structure
+USA <- select(Data, Month, Revenue_US, after)
+Canada <- select(Data, Month, Revenue_Canada, after)
+
+USA$Group <- "USA"
+Canada$Group <- "Canada"
+
+colnames(USA) <- c("Month", "Revenue", "after", "Group")
+colnames(Canada) <- c("Month", "Revenue", "after", "Group")
+
+Data <- rbind(USA, Canada)
+
+#Difference-in-difference analysis
+mod2 <- lm(log(Revenue) ~ after*Group, data = Data)
+summary(mod2)
+```
+
+Positive trend after inititation of Amazon prime both in Canada and US (other factors than Amazon are responsible for this). Is significant.
+
+USA has more revenues than Canada.
+
+Interaction effect of after and USA shows that (if Amazon Prime is the only difference between the countries) the introduction of Amazon Prime has a significant effect on the revenues.
+
+
+
+
+
+
+
+

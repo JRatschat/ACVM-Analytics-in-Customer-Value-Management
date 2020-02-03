@@ -1,0 +1,44 @@
+---
+title: "Mississippi Retailer"
+author: "Jonathan Ratschat"
+date: "1 2 2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Mississippi Retailer
+
+## Libraries
+
+```{r}
+library(readr)
+```
+
+## Data set
+
+```{r}
+Data <- read_csv("mississipi_data.csv")
+
+str(Data)
+
+summary(Data)
+```
+
+## Create new variable time
+
+```{r}
+Data$Time <- ifelse(Data$day < 26, "01before", ifelse(Data$day < 46, "02during", "03after"))
+Data$Time
+```
+
+## Before-during-after analysis
+
+```{r}
+mod1 <- lm(log(sales_fashion) ~ Time + log(sales_electronics), data = Data)
+summary(mod1)
+```
+
+
