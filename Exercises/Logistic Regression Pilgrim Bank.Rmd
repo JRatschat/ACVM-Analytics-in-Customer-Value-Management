@@ -18,6 +18,7 @@ library(readr)
 library(dplyr)
 library(stargazer)
 library(gmodels)
+library(jtools)
 ```
 
 ## Load data
@@ -51,34 +52,30 @@ Data$Churn[is.na(Data$Churn)] <- 0
 Data$Churn <- as.factor(Data$Churn)
 
 #Handle missing values
-summary(Data$Age)
-Data$AgeMissing[is.na(Data$Age)] <- 1
-Data$AgeMissing[is.na(Data$AgeMissing)] <- 0
-
 Data$Age <- as.integer(Data$Age)
 Data$Age[is.na(Data$Age)] <- 0
 Data$Age <- as.factor(Data$Age)
 
-summary(Data$Income)
-Data$IncomeMissing[is.na(Data$Income)] <- 1
-Data$IncomeMissing[is.na(Data$IncomeMissing)] <- 0
-
 Data$Income <- as.integer(Data$Income)
 Data$Income[is.na(Data$Income)] <- 0
 Data$Income <- as.factor(Data$Income)
-
-Data$Missing <- ifelse(Data$AgeMissing + Data$IncomeMissing > 0, 1, 0)
 ```
 
 ## Develop a model to predict the likelihood to churn for each customer. Briefly explain your motivation behind the use of your model.
 
 ```{r}
-Data <- select(Data, -Profit2000, -AgeMissing, -IncomeMissing, -Missing)
+Data <- select(Data, -Profit2000)
 
 mod1 <- glm(Churn ~ ., data = Data, family = binomial(link="logit"))
 
+summ(mod1)
+```
+
+```{r}
 summary(mod1)
 ```
+
+
 
 stargazer(mod1, type="html", out="star_linear.doc")
 
