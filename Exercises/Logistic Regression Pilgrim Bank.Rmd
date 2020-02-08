@@ -95,3 +95,13 @@ CrossTable(Data$Churn, Data$PredictedChurn)
 ```{r}
 #Accuracy = (TP + TN) / (TP + TN + FP + FN)
 (26157 + 334) / (26157 + 334 + 4904 + 239)
+```
+
+```{r}
+write.csv(Data, "PilgrimNew.csv")
+```
+
+
+
+
+
